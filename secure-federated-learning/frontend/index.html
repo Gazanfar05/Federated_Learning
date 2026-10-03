@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure Federated Learning in Healthcare — Central Server</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyberDark: '#070b14',
+            cyberCard: '#0f172a',
+            cyberBorder: 'rgba(255, 255, 255, 0.08)',
+            cyanGlow: '#06b6d4',
+            emeraldGlow: '#10b981',
+            roseGlow: '#f43f5e',
+            amberGlow: '#f59e0b'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-cyberDark text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-white">
+
+  <!-- TOP APP BAR -->
+  <header class="border-b border-white/10 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 px-6 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Brand & Project Identity -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 border border-cyan-400/30">
+          <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+              SECURE FL HEALTHCARE <span class="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 font-mono font-medium">CENTRAL SERVER</span>
+            </h1>
+          </div>
+          <p class="text-xs text-slate-400">
+            Privacy-Preserving Diabetes Prediction • Secure Aggregation • TLS 1.3 • Differential Privacy
+          </p>
+        </div>
+      </div>
+
+      <!-- Live Telemetry Badges -->
+      <div class="hidden md:flex items-center space-x-3">
+        <div class="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-medium" id="serverStatusBadge">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+          <span class="w-2 h-2 rounded-full bg-emerald-400 -ml-3.5"></span>
+          <span id="serverStatusText">TLS 1.3 ONLINE</span>
+        </div>
+
+        <div class="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-mono font-medium">
+          <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+          <span>mTLS X.509</span>
+        </div>
+
+        <div class="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-mono font-medium">
+          <i data-lucide="key" class="w-3.5 h-3.5"></i>
+          <span>MASKED SEC-AGG</span>
+        </div>
+
+        <div class="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono font-medium">
+          <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
+          <span>DP (ε=1.42, δ=1e-5)</span>
+        </div>
+      </div>
+
+      <!-- Controls: Mode Switcher & Settings -->
+      <div class="flex items-center space-x-2">
+        <!-- Audio alert toggle -->
+        <button id="audioToggleBtn" title="Toggle Sound Feedback" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 border border-white/10 transition">
+          <i data-lucide="volume-2" id="audioIcon" class="w-4 h-4"></i>
+        </button>
+
+        <!-- Mode Toggle Pill -->
+        <div class="flex items-center bg-slate-950 p-1 rounded-lg border border-white/10 text-xs font-medium">
+          <button id="modeSimBtn" class="px-3 py-1 rounded-md transition bg-cyan-600 text-white font-semibold shadow">
+            Simulator
+          </button>
+          <button id="modeLiveBtn" class="px-3 py-1 rounded-md transition text-slate-400 hover:text-white">
+            Live Server
+          </button>
+        </div>
+
+        <!-- Connection Settings Button -->
+        <button id="configModalBtn" title="Server Connection Configuration" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 text-xs font-medium transition">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Config</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- KPI SUMMARY CARDS -->
+    <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      
+      <!-- KPI 1: Current Round -->
+      <div class="glass-panel p-3.5 flex flex-col justify-between">
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>FL ROUND</span>
+          <i data-lucide="repeat" class="w-4 h-4 text-cyan-400"></i>
+        </div>
+        <div class="my-1.5">
+          <div class="text-2xl font-bold font-mono text-white flex items-baseline gap-1">
+            <span id="kpiRoundCurrent">4</span>
+            <span class="text-xs text-slate-400 font-sans">/ 5 MAX</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-1.5">
+            <div id="kpiRoundProgress" class="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500" style="width: 80%"></div>
+          </div>
+        </div>
+        <div class="text-[11px] text-cyan-400/90 font-mono truncate" id="kpiRoundState">
+          AGGREGATION DONE
+        </div>
+      </div>
+
+      <!-- KPI 2: Connected Clients -->
+      <div class="glass-panel p-3.5 flex flex-col justify-between">
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>QUORUM FLEET</span>
+          <i data-lucide="network" class="w-4 h-4 text-emerald-400"></i>
+        </div>
+        <div class="my-1.5">
+          <div class="text-2xl font-bold font-mono text-emerald-400 flex items-baseline gap-1">
+            <span id="kpiClientsActive">3</span>
+            <span class="text-xs text-slate-400 font-sans">/ 3 ONLINE</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Quorum: ≥ 2 clients</p>
+        </div>
+        <div class="text-[11px] text-emerald-400 font-mono">
+          ✓ QUORUM SATISFIED
+        </div>
+      </div>
+
+      <!-- KPI 3: Total Private Cohort -->
+      <div class="glass-panel p-3.5 flex flex-col justify-between">
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>PRIVATE COHORT</span>
+          <i data-lucide="users" class="w-4 h-4 text-blue-400"></i>
+        </div>
+        <div class="my-1.5">
+          <div class="text-2xl font-bold font-mono text-white" id="kpiTotalSamples">
+            1,420
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Patient records</p>
+        </div>
+        <div class="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider flex items-center gap-1">
+          <i data-lucide="shield" class="w-3 h-3"></i> ZERO RAW DATA
+        </div>
+      </div>
+
+      <!-- KPI 4: Byzantine Anomaly Status -->
+      <div class="glass-panel p-3.5 flex flex-col justify-between" id="kpiAnomalyCard">
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>ANOMALY DEFENSE</span>
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i>
+        </div>
+        <div class="my-1.5">
+          <div class="text-2xl font-bold font-mono text-amber-400" id="kpiAnomalyScore">
+            0.94
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Threshold: 0.80 max</p>
+        </div>
+        <div class="text-[11px] text-amber-400 font-mono font-semibold truncate" id="kpiAnomalyStatus">
+          ⚠ HOSP_03 FLAGGED
+        </div>
+      </div>
+
+      <!-- KPI 5: Privacy Budget Spent -->
+      <div class="glass-panel p-3.5 flex flex-col justify-between">
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>PRIVACY BUDGET (DP)</span>
+          <i data-lucide="fingerprint" class="w-4 h-4 text-purple-400"></i>
+        </div>
+        <div class="my-1.5">
+          <div class="text-2xl font-bold font-mono text-purple-300 flex items-baseline gap-1">
+            <span id="kpiDpEpsilon">1.42</span>
+            <span class="text-xs text-slate-400 font-sans">ε / 4.00</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">δ = 1e-5 (RDP)</p>
+        </div>
+        <div class="text-[11px] text-purple-300 font-mono">
+          BUDGET SECURE (35.5%)
+        </div>
+      </div>
+
+      <!-- KPI 6: Global Model & Checkpoint -->
+      <div class="glass-panel p-3.5 flex flex-col justify-between">
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span>CHECKPOINT RECOVERY</span>
+          <i data-lucide="hard-drive" class="w-4 h-4 text-cyan-400"></i>
+        </div>
+        <div class="my-1.5">
+          <div class="text-2xl font-bold font-mono text-cyan-300" id="kpiModelVersion">
+            Model v4
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1 truncate" id="kpiCheckpointName">round_004/model_v4.pt</p>
+        </div>
+        <div class="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
+          <i data-lucide="check" class="w-3 h-3"></i> PERSISTED
+        </div>
+      </div>
+
+    </section>
+
+    <!-- FEDERATED ROUND LIFECYCLE STEPPER -->
+    <div class="glass-panel p-4 overflow-x-auto">
+      <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center justify-between">
+        <span class="flex items-center gap-2">
+          <i data-lucide="git-commit" class="w-4 h-4 text-cyan-400"></i>
+          Round Lifecycle Synchronization Pipeline
+        </span>
+        <span class="text-[11px] font-mono text-cyan-400" id="currentLifecycleLabel">Stage 6/7: Robust Aggregation & FedAvg Complete</span>
+      </div>
+      <div class="flex items-center justify-between min-w-[650px] relative px-2">
+        <!-- Step 1 -->
+        <div class="stepper-node completed" id="step1">
+          <div class="stepper-circle">1</div>
+          <span class="text-[11px] font-medium mt-1 text-slate-300">Round Init</span>
+        </div>
+        <!-- Step 2 -->
+        <div class="stepper-node completed" id="step2">
+          <div class="stepper-circle">2</div>
+          <span class="text-[11px] font-medium mt-1 text-slate-300">mTLS Handshake</span>
+        </div>
+        <!-- Step 3 -->
+        <div class="stepper-node completed" id="step3">
+          <div class="stepper-circle">3</div>
+          <span class="text-[11px] font-medium mt-1 text-slate-300">Model Broadcast</span>
+        </div>
+        <!-- Step 4 -->
+        <div class="stepper-node completed" id="step4">
+          <div class="stepper-circle">4</div>
+          <span class="text-[11px] font-medium mt-1 text-slate-300">DP Local Train</span>
+        </div>
+        <!-- Step 5 -->
+        <div class="stepper-node completed" id="step5">
+          <div class="stepper-circle">5</div>
+          <span class="text-[11px] font-medium mt-1 text-slate-300">Masked Updates</span>
+        </div>
+        <!-- Step 6 -->
+        <div class="stepper-node active" id="step6">
+          <div class="stepper-circle">6</div>
+          <span class="text-[11px] font-medium mt-1 text-cyan-300 font-semibold">Anomaly & FedAvg</span>
+        </div>
+        <!-- Step 7 -->
+        <div class="stepper-node" id="step7">
+          <div class="stepper-circle">7</div>
+          <span class="text-[11px] font-medium mt-1 text-slate-400">Checkpoint Save</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- NAVIGATION TABS -->
+    <div class="flex border-b border-white/10 space-x-2 overflow-x-auto">
+      <button class="nav-tab active px-4 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 border-transparent flex items-center gap-2" data-tab="tab-topology">
+        <i data-lucide="git-branch" class="w-4 h-4"></i>
+        <span>Fleet Topology & Live Round</span>
+      </button>
+
+      <button class="nav-tab px-4 py-2.5 text-sm font-semibold text-slate-400 hover:text-white rounded-t-lg border-b-2 border-transparent flex items-center gap-2" data-tab="tab-viva">
+        <i data-lucide="play-circle" class="w-4 h-4 text-cyan-400"></i>
+        <span>Viva & Demo Scenarios</span>
+        <span class="bg-cyan-500/20 text-cyan-300 text-[10px] px-1.5 py-0.5 rounded font-mono font-bold">VIVA READY</span>
+      </button>
+
+      <button class="nav-tab px-4 py-2.5 text-sm font-semibold text-slate-400 hover:text-white rounded-t-lg border-b-2 border-transparent flex items-center gap-2" data-tab="tab-crypto">
+        <i data-lucide="binary" class="w-4 h-4 text-purple-400"></i>
+        <span>Secure Aggregation & DP Lab</span>
+      </button>
+
+      <button class="nav-tab px-4 py-2.5 text-sm font-semibold text-slate-400 hover:text-white rounded-t-lg border-b-2 border-transparent flex items-center gap-2" data-tab="tab-inference">
+        <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i>
+        <span>Clinical Diabetes Predictor</span>
+      </button>
+
+      <button class="nav-tab px-4 py-2.5 text-sm font-semibold text-slate-400 hover:text-white rounded-t-lg border-b-2 border-transparent flex items-center gap-2" data-tab="tab-logs">
+        <i data-lucide="terminal" class="w-4 h-4 text-amber-400"></i>
+        <span>Security & Audit Logs</span>
+      </button>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 1: FLEET TOPOLOGY & LIVE ROUND -->
+    <!-- ========================================================================= -->
+    <div id="tab-topology" class="tab-content space-y-6">
+      
+      <!-- ROW 1: Network Topology Map + Fleet Status Table -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left: 4-Laptop Network Topology Canvas (7 Cols) -->
+        <div class="lg:col-span-7 glass-panel p-4 flex flex-col justify-between relative overflow-hidden">
+          <div class="flex items-center justify-between mb-2">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="wifi" class="w-4 h-4 text-cyan-400"></i>
+                4-Laptop Local Area Network Topology (Wi-Fi / LAN)
+              </h2>
+              <p class="text-xs text-slate-400">Live mutual TLS 1.3 socket streams & encrypted packet transmissions</p>
+            </div>
+            <div class="flex items-center space-x-2 text-xs">
+              <span class="inline-flex items-center gap-1 text-cyan-400 font-mono"><span class="w-2 h-2 rounded-full bg-cyan-400"></span> Model Broadcast</span>
+              <span class="inline-flex items-center gap-1 text-emerald-400 font-mono"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Masked Update</span>
+              <span class="inline-flex items-center gap-1 text-rose-400 font-mono"><span class="w-2 h-2 rounded-full bg-rose-400"></span> Anomaly Alert</span>
+            </div>
+          </div>
+
+          <!-- Topology Interactive Canvas -->
+          <div class="relative rounded-xl overflow-hidden border border-white/10 bg-slate-950/70">
+            <canvas id="topologyCanvas" width="700" height="380"></canvas>
+            <div class="absolute bottom-2 left-3 bg-slate-900/90 border border-white/10 px-2.5 py-1 rounded text-[11px] font-mono text-slate-300">
+              LAN Host: <span id="topoHostIp" class="text-cyan-400 font-semibold">192.168.1.10:8443</span> • Cipher: <span class="text-emerald-400">TLS_AES_256_GCM_SHA384</span>
+            </div>
+            <button id="recenterTopoBtn" class="absolute top-2 right-2 bg-slate-800/80 hover:bg-slate-700 p-1.5 rounded text-xs text-slate-300 border border-white/10">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          
+          <p class="text-[11px] text-slate-400 mt-2 text-center">
+            Click any hospital or server node above to inspect TLS certificates, update vectors, and local metadata.
+          </p>
+        </div>
+
+        <!-- Right: Client Registry & Quorum Details (5 Cols) -->
+        <div class="lg:col-span-5 glass-panel p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-emerald-400"></i>
+                Registered Hospital Nodes
+              </h2>
+              <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-medium">3 of 3 Authorized</span>
+            </div>
+
+            <!-- Client Cards List -->
+            <div class="space-y-3" id="clientCardsContainer">
+              <!-- Dynamically populated or default cards -->
+            </div>
+          </div>
+
+          <!-- Bottom Security Note -->
+          <div class="mt-4 p-3 rounded-lg bg-cyan-950/40 border border-cyan-800/40 text-xs text-cyan-200/90 flex items-start gap-2.5">
+            <i data-lucide="info" class="w-4 h-4 text-cyan-400 shrink-0 mt-0.5"></i>
+            <div>
+              <span class="font-semibold text-cyan-300">Privacy Guarantee:</span> The server never receives raw patient records or hospital CSVs. Clients train locally on isolated laptops and transmit only differential-private, pairwise-masked weight vectors.
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ROW 2: Model Performance Metrics & Anomaly Distribution Radar -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Accuracy & F1 Progression Chart (6 Cols) -->
+        <div class="lg:col-span-6 glass-panel p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="trending-up" class="w-4 h-4 text-cyan-400"></i>
+                Federated Global Model Accuracy & F1-Score
+              </h3>
+              <p class="text-xs text-slate-400">Tabular Diabetes Binary Classification (PyTorch MLP)</p>
+            </div>
+            <div class="text-xs font-mono font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+              AUC: 0.884 • Acc: 84.6%
+            </div>
+          </div>
+          <div class="h-64">
+            <canvas id="accuracyChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Loss Curve & Anomaly Detection Norms (6 Cols) -->
+        <div class="lg:col-span-6 glass-panel p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="crosshair" class="w-4 h-4 text-rose-400"></i>
+                Client Update L2-Norm & Anomaly Threshold
+              </h3>
+              <p class="text-xs text-slate-400">Byzantine Detection: updates above threshold are downweighted/rejected</p>
+            </div>
+            <div class="text-xs font-mono font-semibold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
+              Cutoff: 0.80 L2-Dev
+            </div>
+          </div>
+          <div class="h-64">
+            <canvas id="anomalyChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: VIVA & DEMO SCENARIOS CONTROLLER -->
+    <!-- ========================================================================= -->
+    <div id="tab-viva" class="tab-content hidden space-y-6">
+      
+      <!-- Viva Banner -->
+      <div class="glass-panel p-5 bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border-indigo-500/30">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <span class="px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300 text-xs font-mono font-semibold border border-indigo-500/30">
+              EXAMINER & VIVA DEMONSTRATION SUITE
+            </span>
+            <h2 class="text-xl font-bold text-white mt-1">Live College Evaluation Scenario Controller</h2>
+            <p class="text-xs text-slate-300 mt-1 max-w-3xl">
+              Execute each mandatory test scenario required in the project specification with a single click. Observe real-time Byzantine defense, dropout handling, automatic disaster recovery, and mutual TLS verification live on screen.
+            </p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="runAllScenariosBtn" class="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition">
+              <i data-lucide="play" class="w-4 h-4"></i>
+              <span>Auto-Play All Scenarios</span>
+            </button>
+            <button id="resetSimBtn" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-white/10 transition">
+              Reset State
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scenarios Grid (6 Mandatory Project Scenarios) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        
+        <!-- Scenario 1: 3 Hospitals Connect -->
+        <div class="glass-panel p-4 flex flex-col justify-between border-slate-700/50 hover:border-cyan-500/50 transition">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-bold">SCENARIO 1</span>
+              <span class="text-[11px] text-emerald-400 font-mono">mTLS Handshake</span>
+            </div>
+            <h3 class="text-base font-bold text-white mt-2">Three Hospitals Join</h3>
+            <p class="text-xs text-slate-400 mt-1">
+              Hospital 1, Hospital 2, and Hospital 3 present valid X.509 client certificates issued by root CA. Server authenticates all 3 and establishes secure sessions.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+            <span class="text-[11px] text-slate-400 font-mono" id="scen1Status">Ready</span>
+            <button class="px-3 py-1.5 rounded bg-blue-600/80 hover:bg-blue-500 text-white text-xs font-semibold transition flex items-center gap-1.5" onclick="runScenario(1)">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i> Trigger
+            </button>
+          </div>
+        </div>
+
+        <!-- Scenario 2: 5 Federated Rounds -->
+        <div class="glass-panel p-4 flex flex-col justify-between border-slate-700/50 hover:border-emerald-500/50 transition">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">SCENARIO 2</span>
+              <span class="text-[11px] text-emerald-400 font-mono">Weighted FedAvg</span>
+            </div>
+            <h3 class="text-base font-bold text-white mt-2">5 Federated Rounds</h3>
+            <p class="text-xs text-slate-400 mt-1">
+              Hospitals train for 3 local epochs each round, apply differential privacy noise, and submit masked updates. Global model converges to 84.6% accuracy.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+            <span class="text-[11px] text-slate-400 font-mono" id="scen2Status">Ready</span>
+            <button class="px-3 py-1.5 rounded bg-emerald-600/80 hover:bg-emerald-500 text-white text-xs font-semibold transition flex items-center gap-1.5" onclick="runScenario(2)">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i> Trigger
+            </button>
+          </div>
+        </div>
+
+        <!-- Scenario 3: Malicious Update & Byzantine Detection -->
+        <div class="glass-panel p-4 flex flex-col justify-between border-slate-700/50 hover:border-rose-500/50 transition">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">SCENARIO 3</span>
+              <span class="text-[11px] text-rose-400 font-mono">Byzantine Attack</span>
+            </div>
+            <h3 class="text-base font-bold text-white mt-2">Hospital 3 Malicious Update</h3>
+            <p class="text-xs text-slate-400 mt-1">
+              Hospital 3 attempts a sign-flipped / extreme gradient attack (L2-norm: 4.82). Anomaly detector catches it (Score: 0.94 > 0.80), and robust aggregation isolates it!
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+            <span class="text-[11px] text-slate-400 font-mono" id="scen3Status">Ready</span>
+            <button class="px-3 py-1.5 rounded bg-rose-600/80 hover:bg-rose-500 text-white text-xs font-semibold transition flex items-center gap-1.5" onclick="runScenario(3)">
+              <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i> Trigger
+            </button>
+          </div>
+        </div>
+
+        <!-- Scenario 4: Client Dropout Handling -->
+        <div class="glass-panel p-4 flex flex-col justify-between border-slate-700/50 hover:border-amber-500/50 transition">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">SCENARIO 4</span>
+              <span class="text-[11px] text-amber-400 font-mono">Network Resilience</span>
+            </div>
+            <h3 class="text-base font-bold text-white mt-2">Hospital 2 Disconnects</h3>
+            <p class="text-xs text-slate-400 mt-1">
+              Hospital 2 suffers network drop during training round. Server detects dropout, confirms minimum quorum (2 >= 2), and proceeds with aggregation safely without crashing.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+            <span class="text-[11px] text-slate-400 font-mono" id="scen4Status">Ready</span>
+            <button class="px-3 py-1.5 rounded bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-semibold transition flex items-center gap-1.5" onclick="runScenario(4)">
+              <i data-lucide="wifi-off" class="w-3.5 h-3.5"></i> Trigger
+            </button>
+          </div>
+        </div>
+
+        <!-- Scenario 5: Server Crash & Automatic Checkpoint Recovery -->
+        <div class="glass-panel p-4 flex flex-col justify-between border-slate-700/50 hover:border-purple-500/50 transition">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-bold">SCENARIO 5</span>
+              <span class="text-[11px] text-purple-400 font-mono">Crash Recovery</span>
+            </div>
+            <h3 class="text-base font-bold text-white mt-2">Disaster Recovery</h3>
+            <p class="text-xs text-slate-400 mt-1">
+              Simulates power outage/server termination mid-round. On restart, server auto-discovers latest valid checkpoint (Round 3, Model v3) and resumes state seamlessly.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+            <span class="text-[11px] text-slate-400 font-mono" id="scen5Status">Ready</span>
+            <button class="px-3 py-1.5 rounded bg-purple-600/80 hover:bg-purple-500 text-white text-xs font-semibold transition flex items-center gap-1.5" onclick="runScenario(5)">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Trigger
+            </button>
+          </div>
+        </div>
+
+        <!-- Scenario 6: Rogue Client Rejection -->
+        <div class="glass-panel p-4 flex flex-col justify-between border-slate-700/50 hover:border-cyan-500/50 transition">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-bold">SCENARIO 6</span>
+              <span class="text-[11px] text-rose-400 font-mono">Zero-Trust Auth</span>
+            </div>
+            <h3 class="text-base font-bold text-white mt-2">Rogue Client Rejected</h3>
+            <p class="text-xs text-slate-400 mt-1">
+              An unauthorized machine (rogue_hacker_client) attempts to join without a valid CA-signed certificate. Server instantly rejects connection with HTTP 401 & TLS alert.
+            </p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
+            <span class="text-[11px] text-slate-400 font-mono" id="scen6Status">Ready</span>
+            <button class="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold transition flex items-center gap-1.5" onclick="runScenario(6)">
+              <i data-lucide="slash" class="w-3.5 h-3.5"></i> Trigger
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Live Scenario Execution Console -->
+      <div class="glass-panel p-4">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+            Live Scenario Narration & State Transitions
+          </h3>
+          <span class="text-xs font-mono text-slate-400" id="scenarioStepCounter">Idle</span>
+        </div>
+        <div id="scenarioNarrationBox" class="p-4 rounded-xl bg-slate-950 border border-white/10 min-h-[110px] text-xs font-mono space-y-1.5 text-slate-300">
+          <div class="text-cyan-400 font-semibold">[READY] System initialized for demonstration. Select any scenario above to execute.</div>
+          <div class="text-slate-500">• Server IP: 192.168.1.10:8443 (bind: 0.0.0.0)</div>
+          <div class="text-slate-500">• Root CA: ca.crt verified • TLS 1.3 enforced</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: SECURE AGGREGATION & DP LAB -->
+    <!-- ========================================================================= -->
+    <div id="tab-crypto" class="tab-content hidden space-y-6">
+      
+      <!-- Academic Disclosure Banner -->
+      <div class="p-4 rounded-xl bg-purple-950/40 border border-purple-800/40 text-xs text-purple-200 flex items-start gap-3">
+        <i data-lucide="shield" class="w-5 h-5 text-purple-400 shrink-0 mt-0.5"></i>
+        <div>
+          <span class="font-bold text-purple-300 uppercase tracking-wider">Academic Security & Cryptographic Architecture:</span>
+          <p class="mt-1 text-slate-300">
+            This module illustrates the twin pillars of privacy in our architecture: <strong class="text-white">1) Secure Aggregation via Pairwise Additive Masking</strong> (preventing the central server from inspecting raw hospital model updates) and <strong class="text-white">2) Differential Privacy via DP-SGD</strong> (preventing model inversion and membership inference attacks on the final global model).
+          </p>
+        </div>
+      </div>
+
+      <!-- Interactive Additive Masking Visualizer -->
+      <div class="glass-panel p-5 space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="layers" class="w-5 h-5 text-cyan-400"></i>
+              Interactive Pairwise Additive Masking Visualizer
+            </h3>
+            <p class="text-xs text-slate-400">
+              Explore how each hospital masks its weight vector with zero-sum noise so the server only ever computes the sum!
+            </p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="stepMaskBtn" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition flex items-center gap-1">
+              <i data-lucide="play" class="w-3.5 h-3.5"></i> Step Through Math
+            </button>
+            <button id="resetMaskBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-white/10 transition">
+              Reset Math
+            </button>
+          </div>
+        </div>
+
+        <!-- Math Steps Diagram -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
+          <!-- Hospital 1 Column -->
+          <div class="p-3.5 rounded-lg bg-slate-900/90 border border-cyan-500/30 space-y-2">
+            <div class="flex items-center justify-between text-cyan-400 font-bold border-b border-white/10 pb-1">
+              <span>HOSPITAL 1</span>
+              <span>n₁ = 500</span>
+            </div>
+            <div class="text-slate-300">Local Weights <span class="text-white font-bold">W₁</span>:</div>
+            <div class="p-2 rounded bg-black/50 text-cyan-300 text-[11px]" id="mathW1">[0.42, -0.18, 0.75, 0.31]</div>
+            <div class="text-slate-400 text-[11px]">Pairwise Masks Added:</div>
+            <div class="text-slate-300 text-[11px]">+ S₁₂ - S₃₁</div>
+            <div class="text-purple-300 font-semibold text-[11px]">Transmitted Update Y₁:</div>
+            <div class="p-2 rounded bg-purple-950/40 border border-purple-500/30 text-purple-200 text-[11px]" id="mathY1">
+              [1.12, 0.42, -0.15, 0.88]
+            </div>
+            <p class="text-[10px] text-slate-500 italic">Server sees only obfuscated Y₁</p>
+          </div>
+
+          <!-- Hospital 2 Column -->
+          <div class="p-3.5 rounded-lg bg-slate-900/90 border border-emerald-500/30 space-y-2">
+            <div class="flex items-center justify-between text-emerald-400 font-bold border-b border-white/10 pb-1">
+              <span>HOSPITAL 2</span>
+              <span>n₂ = 450</span>
+            </div>
+            <div class="text-slate-300">Local Weights <span class="text-white font-bold">W₂</span>:</div>
+            <div class="p-2 rounded bg-black/50 text-emerald-300 text-[11px]" id="mathW2">[0.38, -0.22, 0.69, 0.28]</div>
+            <div class="text-slate-400 text-[11px]">Pairwise Masks Added:</div>
+            <div class="text-slate-300 text-[11px]">+ S₂₃ - S₁₂</div>
+            <div class="text-purple-300 font-semibold text-[11px]">Transmitted Update Y₂:</div>
+            <div class="p-2 rounded bg-purple-950/40 border border-purple-500/30 text-purple-200 text-[11px]" id="mathY2">
+              [-0.32, -0.82, 1.49, -0.29]
+            </div>
+            <p class="text-[10px] text-slate-500 italic">Server sees only obfuscated Y₂</p>
+          </div>
+
+          <!-- Hospital 3 Column -->
+          <div class="p-3.5 rounded-lg bg-slate-900/90 border border-amber-500/30 space-y-2">
+            <div class="flex items-center justify-between text-amber-400 font-bold border-b border-white/10 pb-1">
+              <span>HOSPITAL 3</span>
+              <span>n₃ = 470</span>
+            </div>
+            <div class="text-slate-300">Local Weights <span class="text-white font-bold">W₃</span>:</div>
+            <div class="p-2 rounded bg-black/50 text-amber-300 text-[11px]" id="mathW3">[0.45, -0.15, 0.72, 0.35]</div>
+            <div class="text-slate-400 text-[11px]">Pairwise Masks Added:</div>
+            <div class="text-slate-300 text-[11px]">+ S₃₁ - S₂₃</div>
+            <div class="text-purple-300 font-semibold text-[11px]">Transmitted Update Y₃:</div>
+            <div class="p-2 rounded bg-purple-950/40 border border-purple-500/30 text-purple-200 text-[11px]" id="mathY3">
+              [0.45, 0.25, 0.08, 0.38]
+            </div>
+            <p class="text-[10px] text-slate-500 italic">Server sees only obfuscated Y₃</p>
+          </div>
+        </div>
+
+        <!-- Server Aggregation Formula Result -->
+        <div class="p-4 rounded-xl bg-slate-950 border border-cyan-500/40 flex flex-col md:flex-row items-center justify-between gap-4 font-mono text-xs">
+          <div>
+            <div class="text-cyan-400 font-bold flex items-center gap-1.5">
+              <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+              Server Mathematical Aggregation (Zero-Sum Noise Cancellation)
+            </div>
+            <div class="text-slate-300 mt-1">
+              Σ Yᵢ = (W₁ + S₁₂ - S₃₁) + (W₂ + S₂₃ - S₁₂) + (W₃ + S₃₁ - S₂₃) = <span class="text-emerald-400 font-bold">W₁ + W₂ + W₃</span>
+            </div>
+            <div class="text-slate-400 text-[11px] mt-0.5">
+              Notice: All masks (S₁₂, S₂₃, S₃₁) cancel out identically to 0! The server reconstructed the true aggregate without ever observing individual patient gradients.
+            </div>
+          </div>
+          <div class="p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-emerald-300 shrink-0">
+            <span class="text-[10px] text-emerald-400 uppercase font-bold block">Aggregated Sum:</span>
+            <span class="text-sm font-bold">[1.25, -0.55, 2.16, 0.94]</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Differential Privacy Accountant Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- DP Controls & Sliders (5 Cols) -->
+        <div class="lg:col-span-5 glass-panel p-4 space-y-4">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i data-lucide="sliders" class="w-4 h-4 text-purple-400"></i>
+            DP-SGD Hyperparameter Accountant
+          </h3>
+          <p class="text-xs text-slate-400">
+            Tune the client-side gradient clipping norm and Gaussian noise multiplier to inspect privacy budget evolution.
+          </p>
+
+          <div class="space-y-3 font-mono text-xs">
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Clipping Norm (C):</span>
+                <span class="text-cyan-400 font-bold" id="dpClipVal">1.0</span>
+              </div>
+              <input type="range" id="dpClipSlider" min="0.5" max="3.0" step="0.1" value="1.0">
+            </div>
+
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Noise Multiplier (σ):</span>
+                <span class="text-purple-400 font-bold" id="dpNoiseVal">0.8</span>
+              </div>
+              <input type="range" id="dpNoiseSlider" min="0.2" max="2.0" step="0.1" value="0.8">
+            </div>
+
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Delta Target (δ):</span>
+                <span class="text-slate-400 font-bold">1e-5 (Fixed)</span>
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-slate-300 mb-1">
+                <span>Max Rounds (T):</span>
+                <span class="text-emerald-400 font-bold">5 Rounds</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-lg bg-slate-900 border border-white/10 space-y-1.5 text-xs font-mono">
+            <div class="text-slate-400">Calculated RDP Privacy Spent:</div>
+            <div class="text-xl font-bold text-purple-300" id="dpComputedEpsilon">ε = 1.42</div>
+            <div class="text-[11px] text-emerald-400">Strict Privacy Guarantee (ε &lt; 2.0 = Strong Protection)</div>
+          </div>
+        </div>
+
+        <!-- DP Privacy Budget Curve Chart (7 Cols) -->
+        <div class="lg:col-span-7 glass-panel p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-4 h-4 text-purple-400"></i>
+                Cumulative Privacy Budget (ε) vs Training Rounds
+              </h3>
+              <p class="text-xs text-slate-400">Rényi Differential Privacy (RDP) Subsampled Gaussian Composition</p>
+            </div>
+            <span class="text-xs font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/30">
+              Target ε ≤ 4.0
+            </span>
+          </div>
+          <div class="h-64">
+            <canvas id="dpChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: CLINICAL DIABETES PREDICTOR (LIVE INFERENCE) -->
+    <!-- ========================================================================= -->
+    <div id="tab-inference" class="tab-content hidden space-y-6">
+      
+      <div class="glass-panel p-5 bg-gradient-to-r from-slate-900 via-emerald-950/30 to-slate-900 border-emerald-500/30">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <span class="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 text-xs font-mono font-semibold border border-emerald-500/30">
+              PYTORCH GLOBAL MODEL v4 INFERENCE ENGINE
+            </span>
+            <h2 class="text-xl font-bold text-white mt-1">Interactive Clinical Diabetes Risk Predictor</h2>
+            <p class="text-xs text-slate-300 mt-1 max-w-3xl">
+              Test the trained federated model in real time! Adjust patient clinical vitals below to run a live forward pass through the global MLP neural network (8 input features → Linear(8,16) + ReLU → Linear(16,8) + ReLU → Linear(8,1) + Sigmoid).
+            </p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="loadHealthySampleBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition">
+              Healthy Sample
+            </button>
+            <button id="loadHighRiskSampleBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 border border-rose-500/30 text-xs font-semibold transition">
+              High Risk Sample
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Clinical Sliders Form (7 Cols) -->
+        <div class="lg:col-span-7 glass-panel p-5 space-y-4">
+          <div class="flex items-center justify-between border-b border-white/10 pb-2">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="stethoscope" class="w-4 h-4 text-emerald-400"></i>
+              Patient Diagnostic Measurements
+            </h3>
+            <span class="text-xs text-slate-400 font-mono">Standard PIMA Feature Scale</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-mono">
+            <!-- Glucose -->
+            <div class="p-3 rounded-lg bg-slate-900/80 border border-white/10 space-y-1">
+              <div class="flex justify-between text-slate-300">
+                <span>Fasting Glucose (mg/dL):</span>
+                <span class="text-cyan-400 font-bold" id="valGlucose">120</span>
+              </div>
+              <input type="range" id="sliderGlucose" min="50" max="250" value="120" class="w-full">
+              <div class="flex justify-between text-[10px] text-slate-500"><span>50</span><span>Normal (70-99)</span><span>250</span></div>
+            </div>
+
+            <!-- BMI -->
+            <div class="p-3 rounded-lg bg-slate-900/80 border border-white/10 space-y-1">
+              <div class="flex justify-between text-slate-300">
+                <span>Body Mass Index (BMI):</span>
+                <span class="text-cyan-400 font-bold" id="valBmi">28.5</span>
+              </div>
+              <input type="range" id="sliderBmi" min="15.0" max="55.0" step="0.5" value="28.5" class="w-full">
+              <div class="flex justify-between text-[10px] text-slate-500"><span>15.0</span><span>Healthy (18.5-24.9)</span><span>55.0</span></div>
+            </div>
+
+            <!-- Age -->
+            <div class="p-3 rounded-lg bg-slate-900/80 border border-white/10 space-y-1">
+              <div class="flex justify-between text-slate-300">
+                <span>Patient Age (Years):</span>
+                <span class="text-cyan-400 font-bold" id="valAge">42</span>
+              </div>
+              <input type="range" id="sliderAge" min="18" max="90" value="42" class="w-full">
+              <div class="flex justify-between text-[10px] text-slate-500"><span>18</span><span>Median 45</span><span>90</span></div>
+            </div>
+
+            <!-- Blood Pressure -->
+            <div class="p-3 rounded-lg bg-slate-900/80 border border-white/10 space-y-1">
+              <div class="flex justify-between text-slate-300">
+                <span>Diastolic BP (mm Hg):</span>
+                <span class="text-cyan-400 font-bold" id="valBp">76</span>
+              </div>
+              <input type="range" id="sliderBp" min="40" max="140" value="76" class="w-full">
+              <div class="flex justify-between text-[10px] text-slate-500"><span>40</span><span>Normal (60-80)</span><span>140</span></div>
+            </div>
+
+            <!-- Insulin -->
+            <div class="p-3 rounded-lg bg-slate-900/80 border border-white/10 space-y-1">
+              <div class="flex justify-between text-slate-300">
+                <span>2-Hour Serum Insulin (µU/mL):</span>
+                <span class="text-cyan-400 font-bold" id="valInsulin">95</span>
+              </div>
+              <input type="range" id="sliderInsulin" min="10" max="400" value="95" class="w-full">
+              <div class="flex justify-between text-[10px] text-slate-500"><span>10</span><span>Normal (16-166)</span><span>400</span></div>
+            </div>
+
+            <!-- Pregnancies -->
+            <div class="p-3 rounded-lg bg-slate-900/80 border border-white/10 space-y-1">
+              <div class="flex justify-between text-slate-300">
+                <span>Pregnancies:</span>
+                <span class="text-cyan-400 font-bold" id="valPreg">2</span>
+              </div>
+              <input type="range" id="sliderPreg" min="0" max="15" value="2" class="w-full">
+              <div class="flex justify-between text-[10px] text-slate-500"><span>0</span><span>Avg 2</span><span>15</span></div>
+            </div>
+
+            <!-- Skin Thickness -->
+            <div class="p-3 rounded-lg bg-slate-900/80 border border-white/10 space-y-1">
+              <div class="flex justify-between text-slate-300">
+                <span>Triceps Fold (mm):</span>
+                <span class="text-cyan-400 font-bold" id="valSkin">22</span>
+              </div>
+              <input type="range" id="sliderSkin" min="5" max="80" value="22" class="w-full">
+              <div class="flex justify-between text-[10px] text-slate-500"><span>5</span><span>Normal 20</span><span>80</span></div>
+            </div>
+
+            <!-- Pedigree Function -->
+            <div class="p-3 rounded-lg bg-slate-900/80 border border-white/10 space-y-1">
+              <div class="flex justify-between text-slate-300">
+                <span>Diabetes Pedigree Function:</span>
+                <span class="text-cyan-400 font-bold" id="valPedigree">0.45</span>
+              </div>
+              <input type="range" id="sliderPedigree" min="0.05" max="2.5" step="0.05" value="0.45" class="w-full">
+              <div class="flex justify-between text-[10px] text-slate-500"><span>0.05</span><span>Avg 0.47</span><span>2.5</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prediction Result Gauge & Analysis (5 Cols) -->
+        <div class="lg:col-span-5 glass-panel p-5 flex flex-col justify-between space-y-4">
+          <div>
+            <div class="flex items-center justify-between border-b border-white/10 pb-2">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i>
+                Model Output & Classification
+              </h3>
+              <span class="text-xs font-mono text-cyan-400">Forward Pass: &lt;1ms</span>
+            </div>
+
+            <!-- Risk Probability Radial / Bar Gauge -->
+            <div class="my-6 text-center">
+              <div class="text-xs text-slate-400 font-mono uppercase tracking-wider mb-1">Estimated Diabetes Risk Probability</div>
+              <div class="text-5xl font-extrabold font-mono transition-all duration-300" id="probRiskText">24.8%</div>
+              
+              <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden mt-4 p-0.5 border border-white/10">
+                <div id="probRiskBar" class="bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-500 h-full rounded-full transition-all duration-300" style="width: 24.8%"></div>
+              </div>
+
+              <div class="mt-4 flex justify-center">
+                <span id="riskBadge" class="badge-status badge-emerald text-sm py-1 px-4 font-bold">
+                  LOW RISK (NEGATIVE)
+                </span>
+              </div>
+            </div>
+
+            <!-- Explanation / Key Drivers -->
+            <div class="p-3 rounded-xl bg-slate-900/90 border border-white/10 space-y-2 text-xs">
+              <span class="font-semibold text-slate-300 block">Clinical Feature Contributions:</span>
+              <div class="space-y-1.5 font-mono text-[11px]" id="featureContributionList">
+                <div class="flex justify-between text-slate-400"><span>Glucose Impact:</span><span class="text-slate-200">+0.12 (Moderate)</span></div>
+                <div class="flex justify-between text-slate-400"><span>BMI Impact:</span><span class="text-slate-200">+0.09 (Mild)</span></div>
+                <div class="flex justify-between text-slate-400"><span>Age Impact:</span><span class="text-slate-200">+0.05 (Low)</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Federated Learning Model Comparison -->
+          <div class="p-3 rounded-lg bg-blue-950/30 border border-blue-800/40 text-xs text-slate-300 space-y-1">
+            <div class="font-semibold text-blue-300 flex items-center gap-1.5">
+              <i data-lucide="git-merge" class="w-3.5 h-3.5"></i>
+              FL Convergence Gain
+            </div>
+            <p class="text-[11px] text-slate-400">
+              Round 1 Model Confidence: <span class="text-slate-300 font-mono font-medium">62.1%</span> → Current Round 4 Federated Model: <span class="text-emerald-400 font-mono font-bold">84.6%</span> test set accuracy across all 3 participating hospitals.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 5: SECURITY & AUDIT LOGS CONSOLE -->
+    <!-- ========================================================================= -->
+    <div id="tab-logs" class="tab-content hidden space-y-4">
+      
+      <!-- Log Controls Bar -->
+      <div class="glass-panel p-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center space-x-2">
+          <div class="flex items-center space-x-1.5 text-xs text-slate-300 font-semibold">
+            <i data-lucide="terminal" class="w-4 h-4 text-cyan-400"></i>
+            <span>Log Stream Filter:</span>
+          </div>
+          <div class="flex items-center bg-slate-950 rounded-lg p-0.5 border border-white/10 text-xs">
+            <button class="log-filter-btn px-2.5 py-1 rounded bg-slate-800 text-white font-medium" data-filter="all">All</button>
+            <button class="log-filter-btn px-2.5 py-1 rounded text-slate-400 hover:text-white" data-filter="auth">Auth/TLS</button>
+            <button class="log-filter-btn px-2.5 py-1 rounded text-slate-400 hover:text-white" data-filter="train">Training</button>
+            <button class="log-filter-btn px-2.5 py-1 rounded text-slate-400 hover:text-white" data-filter="crypto">SecAgg/DP</button>
+            <button class="log-filter-btn px-2.5 py-1 rounded text-slate-400 hover:text-white" data-filter="anomaly">Anomalies</button>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <!-- Search box -->
+          <div class="relative">
+            <input type="text" id="logSearchInput" placeholder="Search logs..." class="bg-slate-950 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-slate-200 placeholder-slate-500 w-44 focus:outline-none focus:border-cyan-500 font-mono">
+          </div>
+          <!-- Clear logs button -->
+          <button id="clearLogsBtn" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-white/10 transition">
+            Clear
+          </button>
+          <!-- Export logs -->
+          <button id="exportLogsBtn" class="px-2.5 py-1 rounded-lg bg-cyan-600/80 hover:bg-cyan-500 text-white text-xs font-semibold transition flex items-center gap-1">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Export
+          </button>
+        </div>
+      </div>
+
+      <!-- Streaming Terminal Window -->
+      <div class="terminal-window p-4 h-[480px] overflow-y-auto font-mono text-xs space-y-1 relative" id="logTerminal">
+        <div class="scanline-overlay"></div>
+        <!-- Logs stream here -->
+      </div>
+
+      <div class="text-[11px] text-slate-500 flex items-center justify-between px-1">
+        <span>Zero Sensitive Data Logged • Model Weights Hashed with SHA-256 • TLS 1.3 Compliant</span>
+        <span id="logEntryCount">14 events recorded</span>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: SERVER CONFIGURATION & LAN SETTINGS -->
+  <!-- ========================================================================= -->
+  <div id="configModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="glass-panel p-6 max-w-lg w-full space-y-4 border-cyan-500/40 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="sliders" class="w-5 h-5 text-cyan-400"></i>
+          <h3 class="text-base font-bold text-white">Central Server LAN Connection Settings</h3>
+        </div>
+        <button id="closeConfigModalBtn" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        Configure the IP address and port of Laptop 1 (Central Server) to connect this frontend to the real live FastAPI backend across the hospital Wi-Fi / LAN network.
+      </p>
+
+      <div class="space-y-3 font-mono text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Server Host / IP:</label>
+          <input type="text" id="cfgServerHost" value="192.168.1.10" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500">
+          <p class="text-[10px] text-slate-500 mt-1">Use the LAN IP of Laptop 1 (or 127.0.0.1 for local test)</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Port:</label>
+            <input type="number" id="cfgServerPort" value="8443" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Protocol:</label>
+            <select id="cfgServerProto" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500">
+              <option value="https">HTTPS (TLS 1.3)</option>
+              <option value="http">HTTP (Dev only)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Polling Interval (seconds):</label>
+          <input type="number" id="cfgPollRate" value="2" min="1" max="30" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500">
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Admin API Key / Bearer Token (optional):</label>
+          <input type="password" id="cfgAdminToken" placeholder="Leave blank if using client certs only" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500">
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-white/10 flex items-center justify-between">
+        <button id="testConnectionBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5">
+          <i data-lucide="radio" class="w-3.5 h-3.5 text-cyan-400"></i> Ping Server
+        </button>
+        <div class="flex space-x-2">
+          <button id="cancelConfigBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition">
+            Cancel
+          </button>
+          <button id="saveConfigBtn" class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition">
+            Save & Connect
+          </button>
+        </div>
+      </div>
+      <div id="pingResultText" class="text-xs font-mono text-center hidden"></div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-white/10 bg-slate-950/60 py-3 px-6 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between max-w-7xl mx-auto w-full gap-2">
+    <div>
+      Secure Federated Learning in Healthcare — Central Server Dashboard v2.0
+    </div>
+    <div class="flex items-center space-x-4 font-mono text-[11px]">
+      <span class="text-slate-400">PyTorch MLP Tabular Binary Classifier</span>
+      <span>•</span>
+      <span class="text-slate-400">Zero Patient Records Transmitted</span>
+    </div>
+  </footer>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
