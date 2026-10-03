@@ -1,0 +1,37 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment files
+.env
+.env.local
+
+# Local generated artifacts
+logs/*.log
+models/*.pt
+models/*.pth
+
+# Private certificates and keys
+certificates/*.key
+certificates/*.pem
+certificates/*.p12
+
+# OS/editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
