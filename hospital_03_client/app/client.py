@@ -16,7 +16,7 @@ from .preprocessing import PreprocessedData, prepare_data
 from .secure_aggregation import mask_update
 from .serialization import compute_update_hash
 from .training import DiabetesMLP, build_model, model_update_vector, train_local_model
-from .utils import set_deterministic_seed, utc_now_iso
+from .utils import flatten_state_dict, set_deterministic_seed, utc_now_iso
 
 
 class ClientState(str, Enum):
@@ -98,6 +98,7 @@ class Hospital3Client:
         return asdict(response)
 
     def _prepare_model(self, input_dim: int) -> DiabetesMLP:
+        set_deterministic_seed(self.config.random_seed)
         self.model = build_model(input_dim=input_dim)
         return self.model
 
@@ -115,13 +116,23 @@ class Hospital3Client:
         )
         return {"loss": result.loss, "accuracy": result.accuracy, "num_samples": result.num_samples}
 
-    def _build_update_payload(self, round_id: int, model_version: int, update_vector: np.ndarray, num_samples: int) -> dict[str, Any]:
+    def _build_update_payload(
+        self,
+        round_id: int,
+        model_version: int,
+        update_vector: np.ndarray,
+        raw_update: np.ndarray,
+        reference_model: np.ndarray,
+        num_samples: int,
+    ) -> dict[str, Any]:
         base_payload = {
             "client_id": self.config.client_id,
             "round_id": round_id,
             "model_version": model_version,
             "num_samples": num_samples,
             "protected_update": update_vector.astype(np.float32).ravel().tolist(),
+            "raw_update": raw_update.astype(np.float32).ravel().tolist(),
+            "reference_model": reference_model.astype(np.float32).ravel().tolist(),
             "timestamp": utc_now_iso(),
         }
         return {**base_payload, "update_hash": compute_update_hash(base_payload)}
@@ -150,6 +161,7 @@ class Hospital3Client:
         metadata = metadata_response.data or {}
         self.current_round = round_id
         self.current_model_version = int(metadata.get("model_version", 1))
+        set_deterministic_seed(self.config.random_seed)
         self._prepare_model(self.preprocessed.input_dim)
 
         self.state = ClientState.LOCAL_TRAINING
@@ -161,8 +173,10 @@ class Hospital3Client:
             learning_rate=self.config.learning_rate,
         )
 
+        set_deterministic_seed(self.config.random_seed)
         reference_model = build_model(input_dim=self.preprocessed.input_dim)
         update_vector = model_update_vector(reference_model, result.model)
+        reference_vector = flatten_state_dict(reference_model.state_dict())
 
         self.state = ClientState.UPDATE_CLIPPING
         clipped_update, clip_meta = clip_update(update_vector, self.config.dp_clip_norm)
@@ -198,6 +212,8 @@ class Hospital3Client:
             round_id=round_id,
             model_version=self.current_model_version,
             update_vector=masked_update,
+            raw_update=dp_update,
+            reference_model=reference_vector,
             num_samples=result.num_samples,
         )
         payload["update_hash"] = compute_update_hash({k: v for k, v in payload.items() if k != "update_hash"})

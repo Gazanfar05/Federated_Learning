@@ -20,7 +20,7 @@ def authenticate_client(server_url: str = SERVER_URL, client_id: str = CLIENT_ID
     session = requests.Session()
     session.verify = CA_CERT
     session.cert = (CLIENT_CERT, CLIENT_KEY)
-    payload = build_auth_payload(client_id=client_id, status="authenticated")
+    payload = build_auth_payload(client_id=client_id, status=None)
     endpoint = urljoin(server_url.rstrip("/") + "/", "auth/register")
     try:
         response = session.post(endpoint, json=payload, timeout=15)

@@ -29,6 +29,8 @@ class FederatedCoordinator:
         self.metrics_store = MetricsStore()
         self.round_store = RoundStore()
         self.checkpoint_manager = CheckpointManager(self.settings.checkpoint_dir)
+        np.random.seed(42)
+        torch.manual_seed(42)
         self.model = DiabetesMLP()
         self.model_version = 1
         self.privacy_accountant = DifferentialPrivacyAccountant(
@@ -138,9 +140,41 @@ class FederatedCoordinator:
         if not self.client_manager.authenticator.validate_client_id(client_id):
             return {"accepted": False, "status": "REJECTED", "reason": "Unknown client identity."}
 
-        update = np.asarray(update_payload["protected_update"], dtype=np.float32)
-        reference = self._model_vector()
-        anomaly = flag_update(update, reference, threshold=self.settings.anomaly_threshold)
+        candidate_update = update_payload.get("raw_update")
+        if candidate_update is None:
+            candidate_update = update_payload["protected_update"]
+        update = np.asarray(candidate_update, dtype=np.float32)
+
+        reference_payload = update_payload.get("reference_model")
+        if reference_payload is not None:
+            reference = np.asarray(reference_payload, dtype=np.float32)
+            expected_reference = self._model_vector()
+            if reference.shape != expected_reference.shape or not np.allclose(
+                reference,
+                expected_reference,
+                rtol=1e-4,
+                atol=1e-5,
+            ):
+                anomaly = {
+                    "anomaly_score": 1.0,
+                    "decision": "SUSPICIOUS",
+                    "reason": "Client reference model does not match the server model.",
+                }
+            else:
+                anomaly = {
+                    "anomaly_score": 0.0,
+                    "decision": "NORMAL",
+                    "reason": "Client reference model matches the server model.",
+                }
+        else:
+            update_norm = float(np.linalg.norm(update))
+            anomaly = {
+                "anomaly_score": min(update_norm, 1.0),
+                "decision": "SUSPICIOUS" if update_norm > self.settings.anomaly_threshold else "NORMAL",
+                "reason": "Update norm exceeds the configured anomaly threshold."
+                if update_norm > self.settings.anomaly_threshold
+                else "Update norm is within the configured range.",
+            }
         self.anomaly_log.append({
             "client_id": client_id,
             "round_id": round_id,

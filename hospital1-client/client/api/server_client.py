@@ -27,7 +27,7 @@ class ServerClient:
             return {"ok": False, "error": str(exc)}
 
     def join_round(self, round_id: int | str):
-        payload = {"client_id": self.client_id, "round_id": round_id, "status": "joined"}
+        payload = {"client_id": self.client_id, "round_id": round_id}
         try:
             resp = self.session.post(urljoin(self.server_url, "training/join"), json=payload, timeout=15)
             resp.raise_for_status()
@@ -37,7 +37,7 @@ class ServerClient:
 
     def fetch_model(self, model_version: int | str = 0):
         try:
-            resp = self.session.get(urljoin(self.server_url, f"training/model?model_version={model_version}"), timeout=15)
+            resp = self.session.get(urljoin(self.server_url, "training/model"), params={"client_id": self.client_id}, timeout=15)
             resp.raise_for_status()
             return {"ok": True, "data": resp.json()}
         except Exception as exc:

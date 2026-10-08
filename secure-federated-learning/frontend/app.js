@@ -254,6 +254,11 @@ function initTopology() {
   ctx = canvas.getContext('2d');
   resizeCanvas();
 
+  if (window.ResizeObserver) {
+    const topologyFrame = canvas.parentElement;
+    new ResizeObserver(() => resizeCanvas()).observe(topologyFrame || canvas);
+  }
+
   // Create initial data stream particles
   for (let i = 0; i < 18; i++) {
     spawnParticle();
@@ -267,13 +272,16 @@ function initTopology() {
 function resizeCanvas() {
   if (!canvas) return;
   const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * window.devicePixelRatio;
-  canvas.height = rect.height * window.devicePixelRatio;
-  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  const width = rect.width || 700;
+  const height = rect.height || 380;
+  const pixelRatio = window.devicePixelRatio || 1;
+  canvas.width = width * pixelRatio;
+  canvas.height = height * pixelRatio;
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
   
   // Recenter coordinates based on width/height
-  const w = rect.width;
-  const h = rect.height;
+  const w = width;
+  const h = height;
   serverNode.coords = { x: w / 2, y: h / 2 };
   state.clients[0].coords = { x: w * 0.22, y: h * 0.30 };
   state.clients[1].coords = { x: w * 0.78, y: h * 0.30 };
@@ -1351,10 +1359,14 @@ async function pollLiveServer() {
 // ============================================================================
 
 window.addEventListener('DOMContentLoaded', () => {
-  lucide.createIcons();
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
   renderClientCards();
   initTopology();
-  initCharts();
+  if (window.Chart) {
+    initCharts();
+  }
   runDiabetesInference();
   seedInitialLogs();
   recomputeDP();

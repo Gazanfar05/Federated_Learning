@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -38,7 +39,7 @@ def _build_cert(subject_name: str, issuer_cert: x509.Certificate | None = None, 
         for dns_name in san_dns or []:
             alt_names.append(x509.DNSName(dns_name))
         for ip_name in san_ip or []:
-            alt_names.append(x509.IPAddress(ip_name))
+            alt_names.append(x509.IPAddress(ipaddress.ip_address(ip_name)))
         if alt_names:
             builder = builder.add_extension(x509.SubjectAlternativeName(alt_names), critical=False)
     cert = builder.sign(issuer_key or key, hashes.SHA256())

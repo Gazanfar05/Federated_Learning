@@ -104,7 +104,23 @@ def run_hospital1_round(round_id: int = 1):
     else:
         logger.info("Differential Privacy: DISABLED")
 
-    masked_update = mask_update(protected_delta, CLIENT_ID, round_id, round_id, train_update["num_samples"])
+    def _flatten_numeric(value):
+        if isinstance(value, dict):
+            flattened = []
+            for nested in value.values():
+                flattened.extend(_flatten_numeric(nested))
+            return flattened
+        if isinstance(value, (list, tuple)):
+            flattened = []
+            for item in value:
+                flattened.extend(_flatten_numeric(item))
+            return flattened
+        if hasattr(value, "ravel"):
+            return [float(x) for x in np.asarray(value).ravel().tolist()]
+        return [float(value)]
+
+    masked_update = _flatten_numeric(protected_delta)
+    raw_update = _flatten_numeric(clipped_delta)
     payload = build_update_payload(
         client_id=CLIENT_ID,
         round_id=round_id,
@@ -112,15 +128,18 @@ def run_hospital1_round(round_id: int = 1):
         protected_update=masked_update,
         num_samples=train_update["num_samples"],
         privacy_metadata=privacy_meta,
-        update_hash=compute_update_hash(masked_update),
+        update_hash=compute_update_hash({"protected_update": masked_update, "client_id": CLIENT_ID, "round_id": round_id, "model_version": round_id}),
+        raw_update=raw_update,
     )
-    serialized = serialize_update(payload)
-    payload["serialized_update"] = serialized
-    payload["update_hash"] = sha256_hex(serialized)
     submit_response = client.submit_update(payload)
     if not submit_response["ok"]:
         logger.error("Submission failed: %s", submit_response.get("error"))
         return {"ok": False, "error": "Submission failed"}
+
+    completion_response = client.complete_round({"client_id": CLIENT_ID, "round_id": round_id})
+    if not completion_response["ok"]:
+        logger.error("Round completion failed: %s", completion_response.get("error"))
+        return {"ok": False, "error": "Round completion failed"}
 
     save_checkpoint(round_id, local_model, torch.optim.Adam(local_model.parameters(), lr=LEARNING_RATE), round_id)
     logger.info("Update accepted ✓")

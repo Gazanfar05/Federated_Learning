@@ -21,6 +21,8 @@ class ModelUpdate(BaseModel):
     num_samples: int = Field(..., ge=1)
     update_hash: str = Field(..., min_length=10)
     protected_update: list[float] = Field(..., min_length=1)
+    raw_update: list[float] | None = None
+    reference_model: list[float] | None = None
     timestamp: datetime
 
 
