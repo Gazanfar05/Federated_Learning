@@ -1019,26 +1019,26 @@
       </div>
 
       <p class="text-xs text-slate-300">
-        Configure the IP address and port of Laptop 1 (Central Server) to connect this frontend to the real live FastAPI backend across the hospital Wi-Fi / LAN network.
+        For the quick presentation demo, open this dashboard from Laptop 1 at <span class="font-mono text-cyan-300">http://&lt;Laptop-1-IP&gt;:8000</span>. The connection fields are filled automatically. HTTPS/mTLS remains available for the production setup.
       </p>
 
       <div class="space-y-3 font-mono text-xs">
         <div>
           <label class="block text-slate-400 mb-1">Server Host / IP:</label>
-          <input type="text" id="cfgServerHost" value="192.168.1.10" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500">
-          <p class="text-[10px] text-slate-500 mt-1">Use the LAN IP of Laptop 1 (or 127.0.0.1 for local test)</p>
+          <input type="text" id="cfgServerHost" value="" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500">
+          <p class="text-[10px] text-slate-500 mt-1">Use Laptop 1's LAN IP. Do not use localhost from another laptop.</p>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-slate-400 mb-1">Port:</label>
-            <input type="number" id="cfgServerPort" value="8443" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500">
+            <input type="number" id="cfgServerPort" value="8000" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500">
           </div>
           <div>
             <label class="block text-slate-400 mb-1">Protocol:</label>
             <select id="cfgServerProto" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2 text-slate-100 focus:outline-none focus:border-cyan-500">
+              <option value="http">HTTP (Presentation demo)</option>
               <option value="https">HTTPS (TLS 1.3)</option>
-              <option value="http">HTTP (Dev only)</option>
             </select>
           </div>
         </div>

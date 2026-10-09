@@ -95,9 +95,9 @@ const state = {
 
   // Connection config
   config: {
-    host: '192.168.1.10',
-    port: 8443,
-    proto: 'https',
+    host: window.location.hostname || '127.0.0.1',
+    port: Number(window.location.port) || 8000,
+    proto: window.location.protocol === 'https:' ? 'https' : 'http',
     pollRate: 2000,
     adminToken: ''
   },
@@ -1262,6 +1262,11 @@ document.getElementById('modeLiveBtn')?.addEventListener('click', () => {
 // Server Configuration Modal Handlers
 const configModal = document.getElementById('configModal');
 document.getElementById('configModalBtn')?.addEventListener('click', () => {
+  document.getElementById('cfgServerHost').value = state.config.host;
+  document.getElementById('cfgServerPort').value = state.config.port;
+  document.getElementById('cfgServerProto').value = state.config.proto;
+  document.getElementById('cfgPollRate').value = state.config.pollRate / 1000;
+  document.getElementById('cfgAdminToken').value = state.config.adminToken;
   configModal?.classList.remove('hidden');
   playSound('beep');
 });
