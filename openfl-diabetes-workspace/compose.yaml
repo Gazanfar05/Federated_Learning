@@ -1,0 +1,53 @@
+services:
+  tools:
+    build: .
+    image: openfl-diabetes:local
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ./datasets/expanded/hospital1.csv:/workspace/data/hospital_01/hospital1.csv:ro
+      - ./datasets/expanded/hospital2.csv:/workspace/data/hospital_02/hospital2.csv:ro
+      - ./datasets/expanded/hospital3.csv:/workspace/data/hospital_03/hospital3.csv:ro
+    profiles: ["tools"]
+    command: sleep infinity
+
+  aggregator:
+    image: openfl-diabetes:local
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    ports:
+      - "58931:58931"
+    networks:
+      default:
+        aliases:
+          - gazanfars-macbook-pro.local
+    profiles: ["federation"]
+    command: fx aggregator start
+
+  hospital_01:
+    image: openfl-diabetes:local
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ./datasets/expanded/hospital1.csv:/workspace/data/hospital_01/hospital1.csv:ro
+    profiles: ["federation"]
+    command: fx collaborator start -n hospital_01
+
+  hospital_02:
+    image: openfl-diabetes:local
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ./datasets/expanded/hospital2.csv:/workspace/data/hospital_02/hospital2.csv:ro
+    profiles: ["federation"]
+    command: fx collaborator start -n hospital_02
+
+  hospital_03:
+    image: openfl-diabetes:local
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - ./datasets/expanded/hospital3.csv:/workspace/data/hospital_03/hospital3.csv:ro
+    profiles: ["federation"]
+    command: fx collaborator start -n hospital_03

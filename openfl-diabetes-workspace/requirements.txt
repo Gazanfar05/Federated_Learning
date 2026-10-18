@@ -1,0 +1,4 @@
+# Install these into the separate .venv-openfl environment only.
+# OpenFL itself and grpcio are managed there, not in this workspace file.
+numpy>=1.26,<3
+torch==2.4.1

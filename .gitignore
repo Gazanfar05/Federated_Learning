@@ -1,6 +1,8 @@
 # Python environments and generated caches
 .venv/
+.venv-*/
 venv/
+env/
 ENV/
 __pycache__/
 *.py[cod]
@@ -8,13 +10,40 @@ __pycache__/
 # Test and coverage output
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 
+# Build and package output
+build/
+dist/
+*.egg-info/
+
 # Local runtime output
+*.log
+logs/
 **/logs/*.log
 **/checkpoints/*
+tmp/
+temp/
+
+# Node dependencies and generated output
+node_modules/
+.next/
+coverage/
+
+# Local environment files
+.env
+.env.*
+!.env.example
 
 # Editor and OS files
 .vscode/
+.idea/
 .DS_Store
+
+# Local certificate and key material
+*.key
+*.pem
+*.p12
+*.pfx

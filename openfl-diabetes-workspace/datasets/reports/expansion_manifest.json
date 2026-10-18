@@ -1,0 +1,63 @@
+{
+  "provenance": "Synthetic research data generated from the three local CSV inputs; not real patient records.",
+  "method": "Per-hospital, per-outcome Gaussian copula fitted to empirical feature ranks; labels sampled from each hospital's observed prevalence.",
+  "seed": 20261019,
+  "target_count_per_hospital": 2000,
+  "schema": [
+    "Pregnancies",
+    "Glucose",
+    "BloodPressure",
+    "SkinThickness",
+    "Insulin",
+    "BMI",
+    "DiabetesPedigreeFunction",
+    "Age",
+    "Outcome"
+  ],
+  "hospitals": {
+    "hospital1": {
+      "source": "hospital1-client/data/hospital1.csv",
+      "source_sha256": "4fdab2e454f1ae219618329e12885e6a0bda6a893f00694bc4f6a6a11b57f9d6",
+      "original_row_count": 256,
+      "generated_row_count": 2000,
+      "seed": 20261019,
+      "output": "openfl-diabetes-workspace/datasets/expanded/hospital1.csv",
+      "baseline": "openfl-diabetes-workspace/datasets/baseline/hospital1.csv",
+      "source_outcome_counts": {
+        "0": 227,
+        "1": 29
+      }
+    },
+    "hospital2": {
+      "source": "hospital_02_client/data/hospital2.csv",
+      "source_sha256": "b6322bd026eb2c6b2ea2e7f602ea2af60e774dca8718d573096cb42981bead0c",
+      "original_row_count": 256,
+      "generated_row_count": 2000,
+      "seed": 20262028,
+      "output": "openfl-diabetes-workspace/datasets/expanded/hospital2.csv",
+      "baseline": "openfl-diabetes-workspace/datasets/baseline/hospital2.csv",
+      "source_outcome_counts": {
+        "0": 179,
+        "1": 77
+      }
+    },
+    "hospital3": {
+      "source": "hospital_03_client/data/hospital3.csv",
+      "source_sha256": "304f52eb0fe47e1dea65d5bf46c7d921db670cc677d509012f01faa714a2db76",
+      "original_row_count": 256,
+      "generated_row_count": 2000,
+      "seed": 20263037,
+      "output": "openfl-diabetes-workspace/datasets/expanded/hospital3.csv",
+      "baseline": "openfl-diabetes-workspace/datasets/baseline/hospital3.csv",
+      "source_outcome_counts": {
+        "0": 94,
+        "1": 162
+      }
+    }
+  },
+  "limitations": [
+    "The source files contain only 256 rows each and do not establish clinical validity.",
+    "Synthetic rows are not independently observed patients and must not be used for clinical claims.",
+    "Zero values retain the source convention and may represent missing measurements."
+  ]
+}
