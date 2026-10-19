@@ -102,6 +102,16 @@ const state = {
     adminToken: ''
   },
 
+  // Read-only OpenFL workspace observation; never populated by simulator data.
+  openfl: {
+    lastObservedAt: null,
+    refreshInFlight: false,
+    nextRefreshAt: 0,
+    metricsLastObservedAt: null,
+    metricsRefreshInFlight: false,
+    metricsNextRefreshAt: 0
+  },
+
   // Logs stream
   logs: []
 };
@@ -1244,6 +1254,10 @@ document.getElementById('audioToggleBtn')?.addEventListener('click', () => {
 // Mode switcher: Simulator vs Live Server
 document.getElementById('modeSimBtn')?.addEventListener('click', () => {
   state.mode = 'simulator';
+  if (livePollTimer) {
+    clearTimeout(livePollTimer);
+    livePollTimer = null;
+  }
   document.getElementById('modeSimBtn').className = 'px-3 py-1 rounded-md transition bg-cyan-600 text-white font-semibold shadow';
   document.getElementById('modeLiveBtn').className = 'px-3 py-1 rounded-md transition text-slate-400 hover:text-white';
   addLog('INFO', 'train', 'Switched to Viva Interactive Simulation Mode');
@@ -1252,11 +1266,20 @@ document.getElementById('modeSimBtn')?.addEventListener('click', () => {
 
 document.getElementById('modeLiveBtn')?.addEventListener('click', () => {
   state.mode = 'live';
+  if (livePollTimer) {
+    clearTimeout(livePollTimer);
+    livePollTimer = null;
+  }
   document.getElementById('modeLiveBtn').className = 'px-3 py-1 rounded-md transition bg-cyan-600 text-white font-semibold shadow';
   document.getElementById('modeSimBtn').className = 'px-3 py-1 rounded-md transition text-slate-400 hover:text-white';
   addLog('INFO', 'auth', `Connecting to Live Central Server at ${state.config.proto}://${state.config.host}:${state.config.port}...`);
   playSound('beep');
   pollLiveServer();
+});
+
+document.getElementById('openflRefreshBtn')?.addEventListener('click', () => {
+  refreshOpenFLMonitoring(true);
+  refreshOpenFLMetrics(true);
 });
 
 // Server Configuration Modal Handlers
@@ -1323,6 +1346,271 @@ document.getElementById('testConnectionBtn')?.addEventListener('click', async ()
 });
 
 // Live Polling Engine (when Live Mode is activated)
+const OPENFL_REFRESH_INTERVAL = 10000;
+let livePollTimer = null;
+let livePollInFlight = false;
+
+function setOpenFLText(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function formatOpenFLValue(value, fallback = 'Unknown') {
+  return value === null || value === undefined || value === '' ? fallback : String(value);
+}
+
+function formatOpenFLTimestamp(value) {
+  if (typeof value !== 'string' || value.length === 0) {
+    return 'Unknown';
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 'Invalid timestamp' : parsed.toLocaleString();
+}
+
+function renderOpenFLList(id, values, emptyText) {
+  const element = document.getElementById(id);
+  if (!element) return;
+  element.replaceChildren();
+  if (!Array.isArray(values) || values.length === 0) {
+    element.textContent = emptyText;
+    return;
+  }
+  values.forEach(value => {
+    const item = document.createElement('span');
+    item.className = 'inline-block mr-1.5 mb-1 px-2 py-0.5 rounded bg-purple-500/15 text-purple-200 border border-purple-500/25';
+    item.textContent = String(value);
+    element.appendChild(item);
+  });
+}
+
+function renderOpenFLMonitoring(payload) {
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    Array.isArray(payload) ||
+    typeof payload.integration_available !== 'boolean' ||
+    typeof payload.workspace_available !== 'boolean' ||
+    typeof payload.federation_status !== 'string' ||
+    !Array.isArray(payload.configured_collaborators) ||
+    !Array.isArray(payload.available_checkpoint_names) ||
+    !Array.isArray(payload.limitations)
+  ) {
+    throw new Error('Unexpected OpenFL monitoring response.');
+  }
+
+  setOpenFLText('openflIntegration', payload.integration_available === true ? 'Available' : 'Unavailable');
+  setOpenFLText('openflWorkspace', payload.workspace_available === true ? 'Available' : 'Unavailable');
+  setOpenFLText('openflFederation', formatOpenFLValue(payload.federation_status));
+  setOpenFLText('openflDatabase', payload.experiment_database_available === true ? 'Available' : 'Unavailable');
+  setOpenFLText('openflRounds', formatOpenFLValue(payload.configured_rounds));
+  setOpenFLText('openflObservedAt', formatOpenFLTimestamp(payload.last_observed_at));
+  renderOpenFLList('openflCollaborators', payload.configured_collaborators, 'None configured');
+  renderOpenFLList('openflCheckpoints', payload.available_checkpoint_names, 'None observed');
+
+  const limitations = document.getElementById('openflLimitations');
+  if (limitations) {
+    limitations.replaceChildren();
+    const messages = Array.isArray(payload.limitations) && payload.limitations.length > 0
+      ? payload.limitations
+      : ['No limitations reported by the adapter.'];
+    messages.forEach(message => {
+      const item = document.createElement('li');
+      item.textContent = String(message);
+      limitations.appendChild(item);
+    });
+  }
+
+  setOpenFLText('openflMonitoringSource', 'Source: FastAPI /monitoring/openfl');
+  document.getElementById('openflMonitoringError')?.classList.add('hidden');
+}
+
+function renderOpenFLUnavailable(message) {
+  setOpenFLText(
+    'openflMonitoringSource',
+    state.openfl.lastObservedAt ? 'Stale OpenFL status' : 'OpenFL status unavailable'
+  );
+  const error = document.getElementById('openflMonitoringError');
+  if (error) {
+    error.textContent = message;
+    error.classList.remove('hidden');
+  }
+}
+
+function renderOpenFLMetrics(payload) {
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    Array.isArray(payload) ||
+    typeof payload.metrics_available !== 'boolean' ||
+    typeof payload.metric_semantics_verified !== 'boolean' ||
+    !Array.isArray(payload.round_results) ||
+    !Array.isArray(payload.limitations)
+  ) {
+    throw new Error('Unexpected OpenFL metrics response.');
+  }
+
+  setOpenFLText('openflMetricName', payload.metrics_available ? formatOpenFLValue(payload.metric_name) : 'Unavailable');
+  setOpenFLText(
+    'openflMetricDescription',
+    payload.metrics_available && payload.metric_semantics_verified
+      ? formatOpenFLValue(payload.metric_description)
+      : 'Semantics unavailable'
+  );
+
+  const best = payload.best_observed_result;
+  setOpenFLText(
+    'openflBestMetric',
+    payload.metrics_available && best && typeof best.value === 'number'
+      ? best.value.toString()
+      : 'Unavailable'
+  );
+
+  const roundResults = document.getElementById('openflRoundResults');
+  if (roundResults) {
+    roundResults.replaceChildren();
+    if (payload.round_results.length === 0) {
+      roundResults.textContent = 'Unavailable: historical round values were not recorded.';
+    } else {
+      payload.round_results.forEach(result => {
+        const item = document.createElement('span');
+        item.className = 'inline-block mr-1.5 mb-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-200 border border-emerald-500/25';
+        item.textContent = `Round ${formatOpenFLValue(result.round)}: ${formatOpenFLValue(result.value)}`;
+        roundResults.appendChild(item);
+      });
+    }
+  }
+
+  const limitations = document.getElementById('openflMetricsLimitations');
+  if (limitations) {
+    limitations.replaceChildren();
+    const source = document.createElement('li');
+    source.textContent = formatOpenFLValue(payload.source_description, 'Metric source unavailable.');
+    limitations.appendChild(source);
+    payload.limitations.forEach(message => {
+      const item = document.createElement('li');
+      item.textContent = String(message);
+      limitations.appendChild(item);
+    });
+  }
+
+  setOpenFLText('openflMetricsSource', 'Source: FastAPI /monitoring/openfl/metrics');
+  document.getElementById('openflMetricsError')?.classList.add('hidden');
+}
+
+function renderOpenFLMetricsUnavailable(message) {
+  setOpenFLText(
+    'openflMetricsSource',
+    state.openfl.metricsLastObservedAt ? 'Stale OpenFL metrics' : 'OpenFL metrics unavailable'
+  );
+  const error = document.getElementById('openflMetricsError');
+  if (error) {
+    error.textContent = message;
+    error.classList.remove('hidden');
+  }
+}
+
+async function refreshOpenFLMetrics(force = false) {
+  if (
+    state.mode !== 'live' ||
+    state.openfl.metricsRefreshInFlight ||
+    (!force && Date.now() < state.openfl.metricsNextRefreshAt)
+  ) {
+    return;
+  }
+
+  state.openfl.metricsRefreshInFlight = true;
+  state.openfl.metricsNextRefreshAt = Date.now() + OPENFL_REFRESH_INTERVAL;
+  const url = `${state.config.proto}://${state.config.host}:${state.config.port}`;
+  try {
+    const response = await fetch(`${url}/monitoring/openfl/metrics`);
+    if (!response.ok) {
+      throw new Error(`OpenFL metrics returned HTTP ${response.status}.`);
+    }
+    const payload = await response.json();
+    renderOpenFLMetrics(payload);
+    state.openfl.metricsLastObservedAt = new Date().toISOString();
+  } catch (error) {
+    renderOpenFLMetricsUnavailable(
+      'Unable to read verified OpenFL metrics. The last successful response, if any, may be stale.'
+    );
+    console.debug('OpenFL metrics note:', error);
+  } finally {
+    state.openfl.metricsRefreshInFlight = false;
+  }
+}
+
+async function refreshOpenFLMonitoring(force = false) {
+  if (state.mode !== 'live' || livePollInFlight || (!force && Date.now() < state.openfl.nextRefreshAt)) {
+    return;
+  }
+
+  livePollInFlight = true;
+  state.openfl.refreshInFlight = true;
+  state.openfl.nextRefreshAt = Date.now() + OPENFL_REFRESH_INTERVAL;
+  const url = `${state.config.proto}://${state.config.host}:${state.config.port}`;
+  try {
+    const response = await fetch(`${url}/monitoring/openfl`);
+    if (!response.ok) {
+      throw new Error(`OpenFL monitoring returned HTTP ${response.status}.`);
+    }
+    const payload = await response.json();
+    renderOpenFLMonitoring(payload);
+    state.openfl.lastObservedAt = payload.last_observed_at;
+  } catch (error) {
+    renderOpenFLUnavailable('Unable to read OpenFL monitoring status. The last successful response, if any, may be stale.');
+    console.debug('OpenFL monitoring note:', error);
+  } finally {
+    livePollInFlight = false;
+    state.openfl.refreshInFlight = false;
+  }
+}
+
+function extractLiveClients(payload) {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (payload && typeof payload === 'object' && Array.isArray(payload.clients)) {
+    return payload.clients;
+  }
+
+  return null;
+}
+
+function syncLiveClients(payload) {
+  const remoteClients = extractLiveClients(payload);
+  if (!remoteClients) {
+    console.debug('Polling note: unexpected clients response structure');
+    return false;
+  }
+
+  remoteClients.forEach(remoteClient => {
+    if (!remoteClient || typeof remoteClient !== 'object' || typeof remoteClient.client_id !== 'string') {
+      return;
+    }
+
+    const local = state.clients.find(c => c.id === remoteClient.client_id);
+    if (!local) {
+      return;
+    }
+
+    if (typeof remoteClient.status === 'string' && remoteClient.status.length > 0) {
+      local.status = remoteClient.status;
+    } else if (typeof remoteClient.connection_status === 'string' && remoteClient.connection_status.length > 0) {
+      local.status = remoteClient.connection_status;
+    }
+
+    if (Number.isFinite(remoteClient.samples) && remoteClient.samples >= 0) {
+      local.samples = remoteClient.samples;
+    }
+  });
+
+  renderClientCards();
+  return true;
+}
+
 async function pollLiveServer() {
   if (state.mode !== 'live') return;
 
@@ -1340,23 +1628,15 @@ async function pollLiveServer() {
     const clientsResp = await fetch(`${url}/monitoring/clients`);
     if (clientsResp.ok) {
       const cData = await clientsResp.json();
-      if (Array.isArray(cData)) {
-        // sync clients
-        cData.forEach(remoteClient => {
-          const local = state.clients.find(c => c.id === remoteClient.client_id);
-          if (local) {
-            local.status = remoteClient.status;
-            local.samples = remoteClient.samples || local.samples;
-          }
-        });
-        renderClientCards();
-      }
+      syncLiveClients(cData);
     }
   } catch (e) {
     console.debug('Polling note:', e);
   }
 
-  setTimeout(pollLiveServer, state.config.pollRate);
+  refreshOpenFLMonitoring();
+  refreshOpenFLMetrics();
+  livePollTimer = setTimeout(pollLiveServer, state.config.pollRate);
 }
 
 // ============================================================================

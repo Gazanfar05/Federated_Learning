@@ -29,6 +29,10 @@ class Settings:
     tls_cert_file: str = os.getenv("TLS_CERT_FILE", str(BASE_DIR / "certificates" / "server.crt"))
     tls_key_file: str = os.getenv("TLS_KEY_FILE", str(BASE_DIR / "certificates" / "server.key"))
     tls_ca_file: str = os.getenv("TLS_CA_FILE", str(BASE_DIR / "certificates" / "ca.crt"))
+    openfl_workspace_dir: Path = Path(
+        os.getenv("OPENFL_WORKSPACE_DIR", str(BASE_DIR.parent / "openfl-diabetes-workspace"))
+    )
+    openfl_event_log_file: str = os.getenv("OPENFL_EVENT_LOG_FILE", "")
 
 
 settings = Settings()

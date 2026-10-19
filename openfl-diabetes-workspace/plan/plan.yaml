@@ -8,7 +8,7 @@ aggregator:
     persistent_db_path: local_state/tensor.db
     rounds_to_train: 3
     write_logs: false
-  template: openfl.component.aggregator.Aggregator
+  template: src.event_components.EventAggregator
 assigner:
   settings:
     task_groups:
@@ -28,7 +28,7 @@ collaborator:
     db_store_rounds: 1
     opt_treatment: RESET
     use_delta_updates: false
-  template: openfl.component.collaborator.Collaborator
+  template: src.event_components.EventCollaborator
 compression_pipeline:
   settings: {}
   template: openfl.pipelines.NoCompressionPipeline

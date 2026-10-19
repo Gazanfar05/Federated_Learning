@@ -305,6 +305,72 @@
     <!-- TAB 1: FLEET TOPOLOGY & LIVE ROUND -->
     <!-- ========================================================================= -->
     <div id="tab-topology" class="tab-content space-y-6">
+
+      <!-- OPENFL READ-ONLY MONITORING -->
+      <section class="glass-panel p-4 openfl-monitoring-panel" aria-labelledby="openflMonitoringTitle">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div>
+            <h2 id="openflMonitoringTitle" class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="database" class="w-4 h-4 text-purple-400"></i>
+              OpenFL Workspace Monitoring
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Read-only status from the configured OpenFL workspace; separate from simulator data.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="openflMonitoringSource" class="text-[10px] font-mono text-slate-400 uppercase">Live mode required</span>
+            <button id="openflRefreshBtn" type="button" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 text-xs transition">
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div id="openflMonitoringError" class="hidden mb-3 p-2.5 rounded-lg bg-rose-950/30 border border-rose-500/30 text-xs text-rose-300" role="status"></div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div class="openfl-status-item"><span>Integration</span><strong id="openflIntegration">Not observed</strong></div>
+          <div class="openfl-status-item"><span>Workspace</span><strong id="openflWorkspace">Not observed</strong></div>
+          <div class="openfl-status-item"><span>Federation status</span><strong id="openflFederation">Unknown</strong></div>
+          <div class="openfl-status-item"><span>Experiment database</span><strong id="openflDatabase">Not observed</strong></div>
+          <div class="openfl-status-item"><span>Configured rounds</span><strong id="openflRounds">Unknown</strong></div>
+          <div class="openfl-status-item"><span>Last observation</span><strong id="openflObservedAt">Not observed</strong></div>
+          <div class="openfl-status-item md:col-span-2"><span>Configured collaborators</span><strong id="openflCollaborators">Unknown</strong></div>
+          <div class="openfl-status-item md:col-span-4"><span>Available checkpoints</span><strong id="openflCheckpoints">Unknown</strong></div>
+        </div>
+        <div class="mt-3">
+          <div class="text-[11px] text-slate-400 uppercase tracking-wider mb-1">Limitations and warnings</div>
+          <ul id="openflLimitations" class="text-xs text-amber-300 space-y-1">
+            <li>OpenFL monitoring has not been queried.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- OPENFL VERIFIED METRICS -->
+      <section class="glass-panel p-4 openfl-metrics-panel" aria-labelledby="openflMetricsTitle">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div>
+            <h2 id="openflMetricsTitle" class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-400"></i>
+              OpenFL Experiment Results
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Verified metrics only; not simulator charts or FastAPI demonstration values.</p>
+          </div>
+          <span id="openflMetricsSource" class="text-[10px] font-mono text-slate-400 uppercase">Live mode required</span>
+        </div>
+        <div id="openflMetricsError" class="hidden mb-3 p-2.5 rounded-lg bg-rose-950/30 border border-rose-500/30 text-xs text-rose-300" role="status"></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+          <div class="openfl-status-item"><span>Metric</span><strong id="openflMetricName">Unavailable</strong></div>
+          <div class="openfl-status-item"><span>Meaning</span><strong id="openflMetricDescription">Unavailable</strong></div>
+          <div class="openfl-status-item"><span>Best observed value</span><strong id="openflBestMetric">Unavailable</strong></div>
+        </div>
+        <div class="mt-3">
+          <div class="text-[11px] text-slate-400 uppercase tracking-wider mb-1">Round-by-round results</div>
+          <div id="openflRoundResults" class="text-xs text-slate-300">Unavailable: historical round values were not recorded.</div>
+        </div>
+        <div class="mt-3">
+          <div class="text-[11px] text-slate-400 uppercase tracking-wider mb-1">Metric source and limitations</div>
+          <ul id="openflMetricsLimitations" class="text-xs text-amber-300 space-y-1">
+            <li>OpenFL metrics have not been queried.</li>
+          </ul>
+        </div>
+      </section>
       
       <!-- ROW 1: Network Topology Map + Fleet Status Table -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
