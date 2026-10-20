@@ -101,6 +101,28 @@ If your shell is already in the parent `Federated_Learning` directory, use:
 python -m uvicorn server.main:app --app-dir secure-federated-learning --host 0.0.0.0 --port 8443
 ```
 
+## Quick multi-laptop presentation demo
+
+For a same-Wi-Fi classroom demo, Laptop 1 can run the dashboard and API together
+without the certificate setup:
+
+```bash
+cd secure-federated-learning
+./start_demo.sh
+```
+
+Find Laptop 1's address with `ipconfig getifaddr en0` (or `en1`), then open this
+URL on the other laptops:
+
+```text
+http://<laptop-1-lan-ip>:8000
+```
+
+Leave the dashboard in Simulator mode for the reliable presentation flow. To
+exercise the API, open Config, use port `8000`, choose `HTTP (Presentation demo)`,
+click `Ping Server`, then select Live Server. This mode is for a local demo only;
+use the HTTPS/mTLS setup below for real data.
+
 ## Virtual environment
 
 Use a project-local virtual environment to keep dependencies isolated.

@@ -1,0 +1,4 @@
+# collaborator_name,data_directory_path
+hospital_01,/workspace/data/hospital_01/hospital1.csv
+hospital_02,/workspace/data/hospital_02/hospital2.csv
+hospital_03,/workspace/data/hospital_03/hospital3.csv

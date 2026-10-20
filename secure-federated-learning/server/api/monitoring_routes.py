@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from server.config import settings
 from server.dependencies import get_coordinator
+from server.services.openfl_monitor import OpenFLMonitor
+from server.services.openfl_metrics import OpenFLMetrics
+from server.services.openfl_events import OpenFLEvents
 
 router = APIRouter(prefix="/monitoring")
 
@@ -35,3 +39,21 @@ async def privacy() -> dict:
 async def anomalies() -> dict:
     coordinator = get_coordinator()
     return {"anomalies": coordinator.monitoring_anomalies()}
+
+
+@router.get("/openfl")
+async def openfl_status() -> dict:
+    return OpenFLMonitor(settings.openfl_workspace_dir).inspect()
+
+
+@router.get("/openfl/metrics")
+async def openfl_metrics() -> dict:
+    return OpenFLMetrics(settings.openfl_workspace_dir).inspect()
+
+
+@router.get("/openfl/events")
+async def openfl_events() -> dict:
+    return OpenFLEvents(
+        settings.openfl_workspace_dir,
+        settings.openfl_event_log_file,
+    ).inspect()
