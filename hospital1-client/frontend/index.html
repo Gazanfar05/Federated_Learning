@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hospital 01 — Clinical Research & Training Portal</title>
+    <meta name="description" content="Hospital 01 Clinical Research & Training Portal" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">H1</div>
+          <div class="brand-text">
+            <strong>Hospital 01</strong>
+            <span>Clinical Research Unit</span>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Primary navigation">
+          <a class="nav-item active" href="#overview-section"><span class="dot"></span>Overview</a>
+          <a class="nav-item" href="#global-model-section"><span class="dot"></span>Global Model</a>
+          <a class="nav-item" href="#dataset-section"><span class="dot"></span>Dataset Readiness</a>
+          <a class="nav-item" href="#training-section"><span class="dot"></span>Training Workspace</a>
+          <a class="nav-item" href="#evaluation-section"><span class="dot"></span>Evaluation</a>
+          <a class="nav-item" href="#update-review-section"><span class="dot"></span>Update Review</a>
+          <a class="nav-item" href="#activity-history-section"><span class="dot"></span>Activity History</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="label">Research identity</div>
+          <strong>hospital_01</strong>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <h1>Clinical Research & Training Portal</h1>
+          <div class="topbar-actions">
+            <span class="pill">Hospital 01</span>
+            <button class="secondary-btn" id="retry-btn" type="button">Retry</button>
+          </div>
+        </header>
+
+        <section class="dashboard-grid">
+          <div id="overview-section" class="card overview-panel">
+            <div class="card-header overview-header">
+              <h3>Overview</h3>
+              <span class="meta">Live status</span>
+            </div>
+            <div id="overview-grid" class="overview-status-grid"></div>
+            <div class="overview-lower-grid">
+              <div class="card section-card status-card">
+                <div class="card-header">
+                  <h3>Hospital status</h3>
+                  <span id="loading-health"></span>
+                </div>
+                <div id="overview-info" class="info-stack"></div>
+              </div>
+              <div class="card side-card activity-card">
+                <div class="card-header">
+                  <h3>Recent activity</h3>
+                  <span class="meta">Timeline</span>
+                </div>
+                <div id="overview-activity" class="timeline"></div>
+              </div>
+            </div>
+          </div>
+
+          <section id="global-model-section" class="card section-card">
+            <div class="card-header">
+              <h3>Global Model</h3>
+              <span id="loading-model"></span>
+            </div>
+            <div id="model-info" class="info-stack"></div>
+          </section>
+
+          <aside id="dataset-section" class="card side-card">
+            <div class="card-header">
+              <h3>Dataset Readiness</h3>
+              <span id="loading-secondary"></span>
+            </div>
+            <div id="dataset-info" class="info-stack"></div>
+          </aside>
+
+          <section id="training-section" class="card section-card">
+            <div class="card-header">
+              <h3>Training Workspace</h3>
+              <span id="loading-trainingStatus"></span>
+            </div>
+            <div id="training-info" class="info-stack"></div>
+            <div id="training-note" style="margin-top: 16px;"></div>
+          </section>
+
+          <aside id="evaluation-section" class="card side-card">
+            <div class="card-header">
+              <h3>Evaluation</h3>
+              <span class="meta">Local metrics</span>
+            </div>
+            <div id="evaluation-info" class="info-stack"></div>
+          </aside>
+
+          <section id="update-review-section" class="card section-card">
+            <div class="card-header">
+              <h3>Update Review</h3>
+              <span class="meta">Read-only placeholder</span>
+            </div>
+            <div id="update-review-info" class="info-stack"></div>
+          </section>
+
+          <aside id="activity-history-section" class="card side-card">
+            <div class="card-header">
+              <h3>Activity History</h3>
+              <span class="meta">Recent events</span>
+            </div>
+            <div id="activity-list" class="timeline"></div>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <script src="./config.js"></script>
+    <script src="./api.js"></script>
+    <script src="./components.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
