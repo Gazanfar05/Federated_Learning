@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hospital 02 - Dataset Quality and Evaluation Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand-block">
+        <p class="kicker">hospital_02</p>
+        <h1>Hospital 02</h1>
+        <p>Data Quality and Evaluation Unit</p>
+      </div>
+
+      <nav class="side-nav" id="sideNav">
+        <button class="nav-btn active" data-page="overview">Data Intelligence Overview</button>
+        <button class="nav-btn" data-page="validation">Dataset Validation</button>
+        <button class="nav-btn" data-page="feature">Feature Quality</button>
+        <button class="nav-btn" data-page="evaluation">Evaluation Laboratory</button>
+        <button class="nav-btn" data-page="comparison">Model Comparison</button>
+        <button class="nav-btn" data-page="history">Dataset and Model History</button>
+      </nav>
+
+      <div class="privacy-note panel">
+        <h2>Privacy Boundary</h2>
+        <p>Raw patient records remain on the hospital machine. This portal is designed to consume only approved aggregate summaries.</p>
+      </div>
+    </aside>
+
+    <div class="main-column">
+      <header class="topbar">
+        <div>
+          <p class="kicker">Secure Federated Learning in Healthcare</p>
+          <h2>Dataset Quality and Evaluation Portal</h2>
+        </div>
+        <div class="topbar-controls">
+          <span id="staleBadge" class="badge badge-neutral">No data loaded</span>
+          <button id="refreshAllBtn" class="action-btn" type="button">Refresh</button>
+          <button id="toggleSettingsBtn" class="action-btn secondary" type="button">API Settings</button>
+        </div>
+      </header>
+
+      <section id="settingsPanel" class="panel settings hidden" aria-label="API settings">
+        <h3>Connection Configuration</h3>
+        <div class="form-grid">
+          <label>
+            Central API Base URL
+            <input id="centralApiInput" type="text" placeholder="https://127.0.0.1:8443" />
+          </label>
+          <label>
+            Local Agent API Base URL (optional)
+            <input id="localAgentInput" type="text" placeholder="http://127.0.0.1:8702" />
+          </label>
+          <label>
+            Request Timeout (ms)
+            <input id="timeoutInput" type="number" min="1000" step="500" />
+          </label>
+          <label>
+            Stale Data Threshold (ms)
+            <input id="staleInput" type="number" min="5000" step="5000" />
+          </label>
+        </div>
+        <div class="settings-actions">
+          <button id="saveSettingsBtn" class="action-btn" type="button">Save Settings</button>
+        </div>
+      </section>
+
+      <main>
+        <section id="page-overview" class="page active" aria-label="Data Intelligence Overview">
+          <div id="overviewGrid" class="card-grid"></div>
+          <div class="grid-2">
+            <article class="panel">
+              <div class="panel-head">
+                <h3>Latest Local Evaluation</h3>
+                <button id="retryLatestEval" class="inline-btn" type="button">Retry</button>
+              </div>
+              <div id="latestEvalBlock"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-head">
+                <h3>Dataset Validation History</h3>
+                <button id="retryValidationHistory" class="inline-btn" type="button">Retry</button>
+              </div>
+              <div id="validationHistoryBlock"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="page-validation" class="page" aria-label="Dataset Validation">
+          <article class="panel">
+            <div class="panel-head">
+              <h3>Validation Workspace</h3>
+              <button id="retryValidationBtn" class="inline-btn" type="button">Retry</button>
+            </div>
+            <div id="validationWorkspace"></div>
+          </article>
+        </section>
+
+        <section id="page-feature" class="page" aria-label="Feature Quality">
+          <article class="panel">
+            <div class="panel-head">
+              <h3>Feature Quality Report</h3>
+              <button id="retryFeatureBtn" class="inline-btn" type="button">Retry</button>
+            </div>
+            <div id="featureQualityBlock"></div>
+            <div id="featureQualityChart" class="chart-wrap"></div>
+          </article>
+        </section>
+
+        <section id="page-evaluation" class="page" aria-label="Evaluation Laboratory">
+          <article class="panel">
+            <div class="panel-head">
+              <h3>Evaluation Laboratory</h3>
+              <button id="retryEvaluationBtn" class="inline-btn" type="button">Retry</button>
+            </div>
+            <div id="evaluationLabSummary"></div>
+            <div id="evaluationHistoryChart" class="chart-wrap"></div>
+          </article>
+        </section>
+
+        <section id="page-comparison" class="page" aria-label="Model Comparison">
+          <article class="panel">
+            <div class="panel-head">
+              <h3>Read-only Model Comparison</h3>
+              <button id="retryComparisonBtn" class="inline-btn" type="button">Retry</button>
+            </div>
+            <div class="form-inline">
+              <label>
+                Left Model Version
+                <input id="leftModelInput" type="text" placeholder="e.g. model_v12" />
+              </label>
+              <label>
+                Right Model Version
+                <input id="rightModelInput" type="text" placeholder="e.g. model_v13" />
+              </label>
+              <button id="loadComparisonBtn" class="action-btn" type="button">Load Comparison</button>
+            </div>
+            <div id="comparisonBlock"></div>
+            <div id="comparisonChart" class="chart-wrap"></div>
+          </article>
+        </section>
+
+        <section id="page-history" class="page" aria-label="Dataset and Model History">
+          <article class="panel">
+            <div class="panel-head">
+              <h3>Timeline</h3>
+              <button id="retryHistoryBtn" class="inline-btn" type="button">Retry</button>
+            </div>
+            <div id="timelineBlock"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
