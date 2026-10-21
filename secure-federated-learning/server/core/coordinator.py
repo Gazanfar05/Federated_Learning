@@ -55,7 +55,15 @@ class FederatedCoordinator:
 
     def _vector_to_state_dict(self, vector: np.ndarray) -> dict[str, torch.Tensor]:
         state = self.model.state_dict()
-        flat = np.asarray(vector, dtype=np.float32)
+        flat = np.asarray(vector, dtype=np.float32).reshape(-1)
+        expected_size = sum(tensor.numel() for tensor in state.values())
+        if flat.size != expected_size:
+            raise ValueError(
+                f"Expected {expected_size} model values, received {flat.size}."
+            )
+        if not np.isfinite(flat).all():
+            raise ValueError("Model vector contains NaN or infinite values.")
+
         offset = 0
         updated: dict[str, torch.Tensor] = {}
         for key in sorted(state):
@@ -131,66 +139,108 @@ class FederatedCoordinator:
             "round_id": self.state.current_round,
             "architecture": "DiabetesMLP(input_dim=8, hidden_dim=16)",
             "parameter_count": sum(p.numel() for p in self.model.parameters()),
+            "model_vector": self._model_vector().tolist(),
             "update_hash": "sha256:global_model_v" + str(self.model_version),
         }
 
     def submit_update(self, update_payload: dict) -> dict:
         client_id = update_payload["client_id"]
-        round_id = update_payload["round_id"]
-        if not self.client_manager.authenticator.validate_client_id(client_id):
-            return {"accepted": False, "status": "REJECTED", "reason": "Unknown client identity."}
+        round_id = int(update_payload["round_id"])
 
-        candidate_update = update_payload.get("raw_update")
-        if candidate_update is None:
-            candidate_update = update_payload["protected_update"]
-        update = np.asarray(candidate_update, dtype=np.float32)
-
-        reference_payload = update_payload.get("reference_model")
-        if reference_payload is not None:
-            reference = np.asarray(reference_payload, dtype=np.float32)
-            expected_reference = self._model_vector()
-            if reference.shape != expected_reference.shape or not np.allclose(
-                reference,
-                expected_reference,
-                rtol=1e-4,
-                atol=1e-5,
-            ):
-                anomaly = {
-                    "anomaly_score": 1.0,
-                    "decision": "SUSPICIOUS",
-                    "reason": "Client reference model does not match the server model.",
-                }
-            else:
-                anomaly = {
-                    "anomaly_score": 0.0,
-                    "decision": "NORMAL",
-                    "reason": "Client reference model matches the server model.",
-                }
-        else:
-            update_norm = float(np.linalg.norm(update))
-            anomaly = {
-                "anomaly_score": min(update_norm, 1.0),
-                "decision": "SUSPICIOUS" if update_norm > self.settings.anomaly_threshold else "NORMAL",
-                "reason": "Update norm exceeds the configured anomaly threshold."
-                if update_norm > self.settings.anomaly_threshold
-                else "Update norm is within the configured range.",
-            }
-        self.anomaly_log.append({
-            "client_id": client_id,
-            "round_id": round_id,
-            "anomaly_score": anomaly["anomaly_score"],
-            "decision": anomaly["decision"],
-            "reason": anomaly["reason"],
-        })
-
-        if anomaly["decision"] == "SUSPICIOUS":
-            self.round_store.ensure_round(round_id)
-            self.round_store.get(round_id).status = "REJECTED"
+        def reject(reason: str) -> dict:
             return {
                 "accepted": False,
                 "status": "REJECTED",
                 "client_id": client_id,
-                "anomaly_score": anomaly["anomaly_score"],
+                "reason": reason,
+            }
+
+        if not self.client_manager.authenticator.validate_client_id(client_id):
+            return reject("Unknown client identity.")
+
+        if int(update_payload["model_version"]) != self.model_version:
+            return reject("Submitted model version does not match the current global model.")
+
+        round_state = self.round_manager.rounds.get(round_id)
+        if (
+            round_id != self.state.current_round
+            or not self.state.running
+            or round_state is None
+            or round_state.status != "ACTIVE"
+        ):
+            return reject("The requested training round is not active.")
+
+        existing_round = self.round_store.get(round_id)
+        if existing_round and any(
+            item.client_id == client_id for item in existing_round.submissions
+        ):
+            return reject("This client has already submitted an update for this round.")
+
+        num_samples = int(update_payload["num_samples"])
+        if num_samples < 1:
+            return reject("num_samples must be positive.")
+
+        try:
+            candidate = np.asarray(
+                update_payload["protected_update"], dtype=np.float32
+            ).reshape(-1)
+        except (TypeError, ValueError):
+            return reject("Model update must be a numeric vector.")
+
+        expected_reference = self._model_vector()
+        if candidate.size != expected_reference.size:
+            return reject(
+                f"Expected {expected_reference.size} model values, received {candidate.size}."
+            )
+        if not np.isfinite(candidate).all():
+            return reject("Model update contains NaN or infinite values.")
+
+        reference_payload = update_payload.get("reference_model")
+        if reference_payload is not None:
+            try:
+                reference = np.asarray(reference_payload, dtype=np.float32).reshape(-1)
+            except (TypeError, ValueError):
+                return reject("Reference model must be a numeric vector.")
+            if (
+                reference.shape != expected_reference.shape
+                or not np.isfinite(reference).all()
+                or not np.allclose(
+                    reference, expected_reference, rtol=1e-4, atol=1e-5
+                )
+            ):
+                anomaly_score = 1.0
+                reason = "Client reference model does not match the current global model."
+                self.anomaly_log.append({
+                    "client_id": client_id,
+                    "round_id": round_id,
+                    "anomaly_score": anomaly_score,
+                    "decision": "SUSPICIOUS",
+                    "reason": reason,
+                })
+                return reject(reason)
+
+        # Updates are full model vectors, so assess their distance from the
+        # global model rather than applying a norm threshold to absolute weights.
+        delta_norm = float(np.linalg.norm(candidate - expected_reference))
+        anomaly_score = min(delta_norm, 1.0)
+        suspicious = delta_norm > self.settings.anomaly_threshold
+        reason = (
+            "Model change exceeds the configured anomaly threshold."
+            if suspicious
+            else "Model change is within the configured threshold."
+        )
+        self.anomaly_log.append({
+            "client_id": client_id,
+            "round_id": round_id,
+            "anomaly_score": anomaly_score,
+            "decision": "SUSPICIOUS" if suspicious else "NORMAL",
+            "reason": reason,
+        })
+
+        if suspicious:
+            return {
+                **reject(reason),
+                "anomaly_score": anomaly_score,
             }
 
         record = self.client_manager.registry.get(client_id)
@@ -204,62 +254,112 @@ class FederatedCoordinator:
             client_id=client_id,
             round_id=round_id,
             model_version=self.model_version,
-            num_samples=int(update_payload.get("num_samples", 1)),
+            num_samples=num_samples,
             update_hash=str(update_payload["update_hash"]),
-            protected_update=list(float(x) for x in update_payload["protected_update"]),
+            protected_update=candidate.tolist(),
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
         self.round_store.add_submission(round_id, submission)
         self.round_manager.mark_submission(client_id, round_id)
+
         return {
             "accepted": True,
             "status": "ACCEPTED",
             "client_id": client_id,
-            "anomaly_score": anomaly["anomaly_score"],
+            "anomaly_score": anomaly_score,
         }
 
     def complete_round(self, client_id: str, round_id: int) -> dict:
         if not self.client_manager.authenticator.validate_client_id(client_id):
             return {"status": "failed", "reason": "Unknown client."}
-        self.round_manager.complete_round(round_id)
+
+        if round_id != self.state.current_round or not self.state.running:
+            return {
+                "status": "failed",
+                "round_id": round_id,
+                "reason": "The requested training round is not active.",
+            }
+
         round_record = self.round_store.get(round_id)
-        if round_record is None:
+        if round_record is None or not round_record.submissions:
             return {"status": "completed_without_updates", "round_id": round_id}
 
         if len(round_record.submissions) < self.settings.min_clients:
-            return {"status": "paused", "round_id": round_id, "reason": "Minimum client quorum not met."}
+            return {
+                "status": "paused",
+                "round_id": round_id,
+                "reason": "Minimum client quorum not met.",
+                "received_clients": len(round_record.submissions),
+                "required_clients": self.settings.min_clients,
+            }
 
         client_models = []
         sample_counts = []
-        anomalies = []
-        for submission in round_record.submissions:
-            client_models.append(torch.nn.Module())
-            sample_counts.append(submission.num_samples)
-            anomalies.append(0.1)
+        anomaly_scores = []
 
-        # Replace the placeholder modules with a model clone. This is a lightweight demo for
-        # the client/server contract, not a full distributed training implementation.
-        valid_models = [self.model for _ in round_record.submissions]
-        robust_model, valid_indices = robust_aggregate(
+        for submission in round_record.submissions:
+            if submission.model_version != self.model_version:
+                return {
+                    "status": "failed",
+                    "round_id": round_id,
+                    "reason": "A submission uses a stale global model version.",
+                }
+
+            client_model = DiabetesMLP()
+            try:
+                client_model.load_state_dict(
+                    self._vector_to_state_dict(
+                        np.asarray(submission.protected_update, dtype=np.float32)
+                    )
+                )
+            except (ValueError, RuntimeError) as exc:
+                return {
+                    "status": "failed",
+                    "round_id": round_id,
+                    "reason": f"Invalid client model: {exc}",
+                }
+
+            client_models.append(client_model)
+            sample_counts.append(submission.num_samples)
+            anomaly_scores.append(0.1)
+
+        aggregated_model, valid_indices = robust_aggregate(
             self.model,
-            valid_models,
+            client_models,
             sample_counts,
-            anomalies,
+            anomaly_scores,
             threshold=self.settings.anomaly_threshold,
         )
-        self.model = robust_model
+
+        if not valid_indices:
+            return {
+                "status": "failed",
+                "round_id": round_id,
+                "reason": "No client updates passed robust aggregation.",
+            }
+
+        self.model = aggregated_model
         self.model_version += 1
         self.state.model_version = self.model_version
-        self.privacy_accountant.register_round(round_id, len(round_record.submissions))
-        self.metrics_store.set(round_id, loss=0.42, accuracy=0.84, f1_score=0.81)
+        self.privacy_accountant.register_round(round_id, len(valid_indices))
 
+        accepted_clients = [
+            round_record.submissions[index].client_id for index in valid_indices
+        ]
+
+        # No held-out evaluation is configured yet. Do not publish invented
+        # loss, accuracy, or F1 values as if they were measured.
+        metrics = {
+            "available": False,
+            "reason": "No held-out evaluation dataset configured.",
+        }
         checkpoint_dir = self.checkpoint_manager.save_checkpoint(
             round_id,
             self.model,
             {
                 "model_version": self.model_version,
-                "client_participation": [item.client_id for item in round_record.submissions],
-                "metrics": {"loss": 0.42, "accuracy": 0.84, "f1_score": 0.81},
+                "client_participation": accepted_clients,
+                "metrics": metrics,
                 "privacy_state": self.privacy_accountant.current_metrics(),
                 "config": {
                     "num_rounds": self.settings.num_rounds,
@@ -270,12 +370,16 @@ class FederatedCoordinator:
             },
         )
 
+        self.round_manager.complete_round(round_id)
+        self.state.running = False
+
         return {
             "status": "completed",
             "round_id": round_id,
             "model_version": self.model_version,
             "checkpoint_dir": str(checkpoint_dir),
-            "accepted_clients": [item.client_id for item in round_record.submissions],
+            "accepted_clients": accepted_clients,
+            "metrics": metrics,
         }
 
     def get_training_status(self) -> dict:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ssl
 import uvicorn
 
 from server.config import settings
@@ -12,10 +13,13 @@ if __name__ == "__main__":
         "reload": False,
         "log_level": "info",
     }
+
     if settings.tls_enabled:
         server_options.update(
             ssl_keyfile=settings.tls_key_file,
             ssl_certfile=settings.tls_cert_file,
+            ssl_ca_certs=settings.tls_ca_file,
+            ssl_cert_reqs=ssl.CERT_REQUIRED,
         )
 
     uvicorn.run("server.main:app", **server_options)
